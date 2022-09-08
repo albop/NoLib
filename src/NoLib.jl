@@ -9,12 +9,17 @@ module NoLib
     include("interp.jl")
     
     using NoLib.Interpolation: interp
+    import Base: getindex
     
     abstract type AGrid{d} end
 
     struct CGrid{d} <: AGrid{d}
         ranges::NTuple{d, Tuple{Float64, Float64, Int64}}
     end
+
+    getindex(g::CGrid{1}, i::Int) = SVector{1}(
+        g.ranges[1][1] + (g.ranges[1][2]-g.ranges[1][1])*( (i-1)/(g.ranges[1][3]-1))
+    )
 
     struct SGrid{d} <: AGrid{d}
         points::Vector{SVector{d, Float64}}
@@ -32,6 +37,15 @@ module NoLib
 
     import Base: getindex
     getindex(g::PGrid{G1, G2, d}, i) where G1 where G2 where d = g.points[i]
+    getindex(g::PGrid{G1, G2, d}, i::Int64, j::Int64) where G1 where G2 where d = g.points[ i + length(g.g1)*(j-1)]
+
+
+    # TODO: check
+    getindex(a::GArray{PGrid{G1, G2, d}, T}, i::Int, j::Int) where G1 where G2 where d where T = a.data[ i + length(a.grid.g1)*(j-1)]
+
+    # TODO: check
+    setindex!(a::GArray{PGrid{G1, G2, d}, T}, v, i::Int, j::Int) where G1 where G2 where d where T = (a.data[ i + length(a.grid.g1)*(j-1)] = v)
+
 
     import Base: iterate
     import Base: length
@@ -60,6 +74,8 @@ module NoLib
 
     GArray(grid::G, x::AbstractVector{T}) where G where T = GArray{G,T}(grid, copy(x))
 
+
+    GDist{G} = GArray{G, Float64}
 
     eltype(g::GArray{G,T}) where G where T = T
 
@@ -132,7 +148,8 @@ module NoLib
         arbitrage(model, s[2], s[3], x, S[2], S[3], X, p)
     end
 
-    function τ(model, ss, a)
+    function τ(model, ss::Tuple, a::SVector)
+
 
         p = model.p
         i, m, s = ss # get current state values
@@ -153,6 +170,72 @@ module NoLib
 
     end
 
+
+    function trembling__hand(g::CGrid{1}, xv)
+        x = xv[1]
+        r = g.ranges[1]
+        u = (x-r[1])/(r[2]-r[1])
+        n = r[3]
+
+        i_ = floor(Int, u*(n-1))
+        i_ = max(min(i_,n-2),0)
+        λ = u*(n-1)-i_
+    
+        λ = min(max(λ, 0.0), 1.0)
+        
+        (
+            (1-λ, i_+1),
+            (λ, i_+2)
+        )
+    end
+    
+    using ResumableFunctions
+
+    @resumable function τ_fit(model, ss::Tuple, a::SVector)
+
+        p = model.p
+        i, m, s = ss # get current state values
+
+        for j in 1:size(model.P, 2)
+            S = transition(model, m, s, a, model.Q[j,:], p)
+            for (w, i_S) in trembling__hand(model.grid.g2, S)
+
+                res = (
+                    model.P[i,j]*w,
+                    (
+                        j,
+                        model.Q[j,:],
+                        i_S,
+                        model.grid.g2[i_S]
+                    )
+                )
+                res::Tuple{Float64, Tuple{Int64, SVector{1}, Int64, SVector{1}}}
+                @yield res
+            end
+        end
+    end
+
+
+    τ(model, ss::Tuple, φ) = τ(model, ss, φ(ss[1],ss[3]))
+
+    function G(model, μ::GDist{T}, x) where T
+        μ1 = GArray(μ.grid, zeros(Float64, length(μ)))
+        for ss in iti(model.grid)
+            a = x(ss[1], ss[3])
+            for (w,(i, m, j, s)) in τ_fit(model, ss, a)
+                μ1[i,j] += w
+            end
+        end
+        μ1
+    end
+
+    # TODO
+    # function simulate(model, ss::Tuple, φ; T=20)
+    #     Typ = typeof(ss)
+    #     sim = Typ[ss]
+    #     for t = 1:T
+    #     end
+    # end
 
     function F0(model, s, x::SVector, xfut::GArray)
         tot = SVector((x*0)...)
