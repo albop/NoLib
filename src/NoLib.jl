@@ -280,19 +280,41 @@ module NoLib
 
         N = length(x)
         P = zeros(N,N)
-        for (ss,a) in (zip(enum(model.grid; linear_index=false),x))
+
+        for (ss,a) in zip(enum(model.grid; linear_index=false),x)
             i = to__linear_index(model.grid, ss[1])
             for (w, (j, _)) in τ_fit(model, ss, a; linear_index=true)
                 P[i,j] = w
             end
         end
         P
+
     end
 
 
+    using LinearAlgebra: I
 
-    τ(model, ss::Tuple, φ) = τ(model, ss, φ(ss[1],ss[3]))
+    function ergodic_distribution(model, x::GArray)
 
+        P = transition_matrix(model, x)
+
+        PP = [ (P-I)[:,1:end-1] ;;  ones(size(P,1))]
+        R = zeros(size(PP,1))
+        R[end] = 1
+        μ = PP'\R
+        
+        ergo = GArray(model.grid, μ)
+
+        return ergo
+
+    end
+
+
+    ## TODO: some ways to plot the ergo dist...
+
+    τ(model, ss::Tuple, φ) = τ(model, ss, φ(ss))
+
+    ## TODO: some simulation
 
     # TODO
     # function simulate(model, ss::Tuple, φ; T=20)
