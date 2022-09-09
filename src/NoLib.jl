@@ -32,19 +32,14 @@ module NoLib
     end
 
     PGrid(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{SGrid{d1}, CGrid{d2}, d1+d2}(g1, g2,
-    [SVector(v1...,v2...) for (v1, v2) in Base.Iterators.product( iti( g1), iti(g2) ) ][:]
+    [SVector(v1...,v2...) for ((i,v1), (j,v2)) in Base.Iterators.product( iti( g1), iti(g2) ) ][:]
     )
 
     import Base: getindex
     getindex(g::PGrid{G1, G2, d}, i) where G1 where G2 where d = g.points[i]
     getindex(g::PGrid{G1, G2, d}, i::Int64, j::Int64) where G1 where G2 where d = g.points[ i + length(g.g1)*(j-1)]
 
-
-    # TODO: check
-    getindex(a::GArray{PGrid{G1, G2, d}, T}, i::Int, j::Int) where G1 where G2 where d where T = a.data[ i + length(a.grid.g1)*(j-1)]
-
-    # TODO: check
-    setindex!(a::GArray{PGrid{G1, G2, d}, T}, v, i::Int, j::Int) where G1 where G2 where d where T = (a.data[ i + length(a.grid.g1)*(j-1)] = v)
+    @inline to__linear_index(g::PGrid, ind::Tuple{Int64, Int64}) =  ind[1] + length(g.g1)*(ind[2]-1)
 
 
     import Base: iterate
@@ -52,20 +47,25 @@ module NoLib
     import Base: getindex
     import Base: setindex!
 
-    iti(sg::SGrid{d}) where d = (p for p in sg.points)
-    iti(cg::CGrid{d}) where d = (  SVector(el...)    for el in Base.Iterators.product((range(r[1], r[2], r[3]) for r in cg.ranges)...) ) 
-    iti(pg::PGrid) = ((i,v1,v2) for ((i,v1), v2) in Base.Iterators.product( enumerate(iti( pg.g1)), iti(pg.g2) ) )
+    iti(sg::SGrid{d}) where d = enumerate(p for p in sg.points)
+    iti(cg::CGrid{d}) where d = enumerate(  SVector(el...)    for el in Base.Iterators.product((range(r[1], r[2], r[3]) for r in cg.ranges)...) ) 
+    iti(pg::PGrid) = ( ((i,j),(v1,v2)) for ((i,v1), (j,v2)) in Base.Iterators.product( (iti( pg.g1)), (iti(pg.g2)) ) )
+
+    function enum(pg::PGrid; linear_index=false) 
+        if !linear_index
+            ( ( (i,j), SVector(v1...,v2...) )
+              for ((i,v1), (j,v2)) in Base.Iterators.product( (iti( pg.g1)), (iti(pg.g2)) ) )
+
+        else
+            ( ( to__linear_index(pg,(i,j)), SVector(v1...,v2...) )
+              for ((i,v1), (j,v2)) in Base.Iterators.product( (iti( pg.g1)), (iti(pg.g2)) ) )        end
+    end
 
     length(pg::PGrid{G1, G2, d}) where G1 where G2 where d = length(pg.g1)*length(pg.g2)
     length(sg::SGrid{d}) where d = length(sg.points)
     length(cg::CGrid{d}) where d = prod(e[3] for e in cg.ranges)
 
-
-    function LVectorLike(m0::SLArray{Tuple{d}, T, 1, d, M}, m) where d where T where M
-        tt = eltype(m)
-        TT = SLArray{Tuple{d}, tt, 1, d, M}
-        return TT(m...)
-    end
+    ## GArrays
 
     struct GArray{G,T}
         grid::G
@@ -73,6 +73,16 @@ module NoLib
     end
 
     GArray(grid::G, x::AbstractVector{T}) where G where T = GArray{G,T}(grid, copy(x))
+
+
+    norm(v::GArray) = maximum(u->maximum(abs, u), v.data)
+
+    # TODO: check
+    getindex(a::GArray{PGrid{G1, G2, d}, T}, i::Int, j::Int) where G1 where G2 where d where T = a.data[ i + length(a.grid.g1)*(j-1)]
+
+    # TODO: check
+    setindex!(a::GArray{PGrid{G1, G2, d}, T}, v, i::Int, j::Int) where G1 where G2 where d where T = (a.data[ i + length(a.grid.g1)*(j-1)] = v)
+
 
 
     GDist{G} = GArray{G, Float64}
@@ -88,11 +98,16 @@ module NoLib
 
     iterate(g::GArray) = iterate(g.data)
     iterate(g::GArray, i) = iterate(g.data, i)
+    
     length(g::GArray) = length(g.data)
     getindex(g::GArray{G,T}, i::Int64) where G where T = g.data[i]
     setindex!(g::GArray, x, i) = (g.data[i] = x)
+    
+
+    # enum(g::GArray) = enumerate(g)
 
     import Base: *, \, +, -, /
+
     *(A::GArray{G,T}, B::GArray{G,U}) where G where T  where U = GArray(A.grid, A.data.*B.data)
     \(A::GArray{G,T}, B::GArray{G,U}) where G where T  where U = GArray(A.grid, A.data.\B.data)
     /(A::GArray{G,T}, B::GArray{G,U}) where G where T  where U = GArray(A.grid, A.data./B.data)
@@ -123,6 +138,17 @@ module NoLib
         return M
     end
 
+
+    ## model functions
+
+    
+    function LVectorLike(m0::SLArray{Tuple{d}, T, 1, d, M}, m) where d where T where M
+        tt = eltype(m)
+        TT = SLArray{Tuple{d}, tt, 1, d, M}
+        return TT(m...)
+    end
+
+
     function transition(model, m, s, x, M, p)
         m = LVectorLike(model.m,m)
         s = LVectorLike(model.s,s)
@@ -148,19 +174,25 @@ module NoLib
         arbitrage(model, s[2], s[3], x, S[2], S[3], X, p)
     end
 
+
+    ### transition function
+
+
     function τ(model, ss::Tuple, a::SVector)
 
 
         p = model.p
-        i, m, s = ss # get current state values
+        (i,_),(m, s) = ss # get current state values
 
         it = (
             (
                 model.P[i,j],
                 (
-                    j,
-                    model.Q[j,:],
-                    transition(model, m, s, a, model.Q[j,:], p)
+                    (j,),
+                    (
+                        model.Q[j,:],
+                        transition(model, m, s, a, model.Q[j,:], p)
+                    )
                 )
             )
             for j in 1:size(model.P, 2)
@@ -191,43 +223,76 @@ module NoLib
     
     using ResumableFunctions
 
-    @resumable function τ_fit(model, ss::Tuple, a::SVector)
+    @resumable function τ_fit(model, ss::Tuple, a::SVector; linear_index=false)
 
         p = model.p
-        i, m, s = ss # get current state values
+
+        i = ss[1][1]
+        # if typeof(ss[1]) <: Tuple
+        #     i = ss[1][1]
+        # else
+        #     i = ss[1]
+        # end
+
+        (m, s) = ss[2]
 
         for j in 1:size(model.P, 2)
+
             S = transition(model, m, s, a, model.Q[j,:], p)
+
             for (w, i_S) in trembling__hand(model.grid.g2, S)
 
                 res = (
                     model.P[i,j]*w,
+
                     (
-                        j,
-                        model.Q[j,:],
-                        i_S,
-                        model.grid.g2[i_S]
+                        (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
+
+                        (model.Q[j,:], model.grid.g2[i_S])
                     )
                 )
-                res::Tuple{Float64, Tuple{Int64, SVector{1}, Int64, SVector{1}}}
+                if linear_index
+                    res::Tuple{Float64, Tuple{Int64, Tuple{SVector{1},SVector{1}}}}
+                else
+                    res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
+                end
                 @yield res
             end
         end
     end
 
-
-    τ(model, ss::Tuple, φ) = τ(model, ss, φ(ss[1],ss[3]))
-
     function G(model, μ::GDist{T}, x) where T
         μ1 = GArray(μ.grid, zeros(Float64, length(μ)))
         for ss in iti(model.grid)
-            a = x(ss[1], ss[3])
-            for (w,(i, m, j, s)) in τ_fit(model, ss, a)
-                μ1[i,j] += w
+            # a = x(ss[1], ss[3])
+            a = x[ss[1]...]
+            for (w, (ind, _)) in τ_fit(model, ss, a)
+                μ1[ind...] += w*μ[ind...]
             end
         end
         μ1
     end
+
+    # TODO: write interpolation version of G
+
+
+    function transition_matrix(model, x)
+
+        N = length(x)
+        P = zeros(N,N)
+        for (ss,a) in (zip(enum(model.grid; linear_index=false),x))
+            i = to__linear_index(model.grid, ss[1])
+            for (w, (j, _)) in τ_fit(model, ss, a; linear_index=true)
+                P[i,j] = w
+            end
+        end
+        P
+    end
+
+
+
+    τ(model, ss::Tuple, φ) = τ(model, ss, φ(ss[1],ss[3]))
+
 
     # TODO
     # function simulate(model, ss::Tuple, φ; T=20)
@@ -373,6 +438,61 @@ module NoLib
             model.grid,
             [dF2(model,s,x,φ,dφ) for (s,x) in zip(iti(model.grid), controls) ],
         )
+
+
+
+
+        function solve(model)
+            T=500
+             K=10
+              tol_ε=1e-8
+               tol_η=1e-6
+                verbose=false
+        
+            N = length(model.grid)
+            x0 = GArray(model.grid, [SVector(model.x) for n=1:N])
+            x1 = deepcopy(x0)
+        
+            dx = deepcopy(x0)
+            r0 = x0*0
+            J = dF0(model, x0, x0)[2]
+        
+            local x0
+            local x1
+        
+            for t=1:T
+                # r0 = F(model, x0, x0)
+                F!(r0, model, x0, x0)
+                ε = norm(r0)
+                if ε<tol_ε
+                    break
+                end
+                if verbose
+                    println("ϵ=$(ε)")
+                end
+                x1.data .= x0.data
+                for k=1:K
+                    # r = F(model, x1, x0)
+                    F!(r0, model, x1, x0)
+                    # J = dF(model, x1, x0)
+                    dF!(J, model, x1, x0)
+                    # dx = J\r0
+                    for n=1:length(r0)
+                        dx.data[n] = J.data[n]\r0.data[n]
+                    end
+                    e = norm(dx)
+                    # println("e=$(e)")
+                    x1.data .-= dx.data
+                    if e<tol_η
+                        break
+                    end
+                end
+                x0 = x1
+        
+            end
+            return x0
+        end
+        
 
 end # module
 
