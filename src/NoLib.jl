@@ -11,6 +11,10 @@ module NoLib
     using NoLib.Interpolation: interp
     import Base: getindex
     
+    ⟂(a,b) = min(a,b)
+    # ⟂ᶠ(a,b)
+
+
     abstract type AGrid{d} end
 
     struct CGrid{d} <: AGrid{d}
@@ -21,8 +25,16 @@ module NoLib
         g.ranges[1][1] + (g.ranges[1][2]-g.ranges[1][1])*( (i-1)/(g.ranges[1][3]-1))
     )
 
+    getindex(g::CGrid{1}, ::Colon) = [SVector(i) for i in range(g.ranges[1]...)]
+
+
     struct SGrid{d} <: AGrid{d}
         points::Vector{SVector{d, Float64}}
+    end
+
+    function SGrid(Q::Matrix)
+        d = size(Q,2)
+        return SGrid{d}([SVector(Q[i,:]...) for i=1:size(Q,1)])
     end
 
     struct PGrid{G1, G2, d} <: AGrid{d}
@@ -31,13 +43,23 @@ module NoLib
         points::Vector{SVector{d, Float64}}
     end
 
+    getindex(g::SGrid{d}, ::Colon) where d = g.points
+    getindex(g::SGrid{d}, i::Int) where d = g.points[i]
+
+    cover(m,v::SVector{d,T}) where d where T = SVector{d,T}(m...,v[length(m)+1:end]...)
+
     PGrid(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{SGrid{d1}, CGrid{d2}, d1+d2}(g1, g2,
-    [SVector(v1...,v2...) for ((i,v1), (j,v2)) in Base.Iterators.product( iti( g1), iti(g2) ) ][:]
+        [SVector(v1...,v2...) for ((i,v1), (j,v2)) in Base.Iterators.product( iti( g1), iti(g2) ) ][:]
     )
+
+    ×(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid(g1,g2)
 
     import Base: getindex
     getindex(g::PGrid{G1, G2, d}, i) where G1 where G2 where d = g.points[i]
     getindex(g::PGrid{G1, G2, d}, i::Int64, j::Int64) where G1 where G2 where d = g.points[ i + length(g.g1)*(j-1)]
+    getindex(g::PGrid{G1, G2, d}, i::Int64, ::Colon) where G1 where G2 where d = g.g2[:] # TODO: should error if i out of bounds
+    getindex(g::PGrid{G1, G2, d}, ::Colon, i::Int64) where G1 where G2 where d = g.g1[:]
+
 
     @inline to__linear_index(g::PGrid, ind::Tuple{Int64, Int64}) =  ind[1] + length(g.g1)*(ind[2]-1)
 
@@ -77,8 +99,17 @@ module NoLib
 
     norm(v::GArray) = maximum(u->maximum(abs, u), v.data)
 
+    import Base: size
+    size(a::GArray{PGrid{G1, G2, d}, T}) where G1 where G2 where d where T = (length(a.grid.g1), length(a.grid.g2))
+
+
     # TODO: check
     getindex(a::GArray{PGrid{G1, G2, d}, T}, i::Int, j::Int) where G1 where G2 where d where T = a.data[ i + length(a.grid.g1)*(j-1)]
+    getindex(a::GArray{PGrid{G1, G2, d}, T}, i::Int, ::Colon) where G1 where G2 where d where T = [a[i,j] for j=1:length(a.grid.g2)]
+    getindex(a::GArray{PGrid{G1, G2, d}, T}, ::Colon, j::Int) where G1 where G2 where d where T = [a[i,j] for i=1:length(a.grid.g1)]
+
+    getindex(a::GArray{PGrid{G1, G2, d}, T}, ::Colon) where G1 where G2 where d where T = a.data
+
 
     # TODO: check
     setindex!(a::GArray{PGrid{G1, G2, d}, T}, v, i::Int, j::Int) where G1 where G2 where d where T = (a.data[ i + length(a.grid.g1)*(j-1)] = v)
@@ -103,6 +134,24 @@ module NoLib
     getindex(g::GArray{G,T}, i::Int64) where G where T = g.data[i]
     setindex!(g::GArray, x, i) = (g.data[i] = x)
     
+
+    # interpolating indexing
+    function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1<:SGrid where G2<:CGrid{d2} where d where d2 where T where U
+        g1 = xa.grid.g1
+        g2 = xa.grid.g2
+        dims = tuple(length(g1), (e[3] for e in g2.ranges)... )
+        # ranges = tuple( (range(e...) for e in g2.ranges)... )
+        v = view(reshape(xa.data, dims),i,:)
+        res = interp(g2.ranges, v, p...)
+        res
+    end
+
+    (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, j::Int64) where G1 where G2 where U where d where T  = xa[i,j]
+    (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 where G2 where U where d where T = xa(S[1][1],S[2][2])
+    (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64, Int64}, U}) where G1 where G2 where U where d where T = xa[S[1]...]
+
+
+
 
     # enum(g::GArray) = enumerate(g)
 
@@ -141,13 +190,20 @@ module NoLib
 
     ## model functions
 
-    
+    import Base: merge
+    function merge(a::SLArray, b::SLArray)
+        # TODO: type is incorrect (should correspond to SVector)
+        m = (merge(convert(NamedTuple,a), convert(NamedTuple,b)))
+        return SLVector(m)
+    end
+
     function LVectorLike(m0::SLArray{Tuple{d}, T, 1, d, M}, m) where d where T where M
         tt = eltype(m)
         TT = SLArray{Tuple{d}, tt, 1, d, M}
         return TT(m...)
     end
 
+    label_GArray(m, g::GArray) = GArray(g.grid, [LVectorLike(m, e) for e in g.data])
 
     function transition(model, m, s, x, M, p)
         m = LVectorLike(model.m,m)
@@ -171,7 +227,7 @@ module NoLib
 
     function arbitrage(model, s, x, S, X)
         p = model.p
-        arbitrage(model, s[2], s[3], x, S[2], S[3], X, p)
+        arbitrage(model, s[2][1], s[2][2], x, S[2][1], S[2][2], X, p)
     end
 
 
@@ -184,14 +240,18 @@ module NoLib
         p = model.p
         (i,_),(m, s) = ss # get current state values
 
+        Q = model.grid.g1.points
+
+        j = 1
+
         it = (
             (
                 model.P[i,j],
                 (
                     (j,),
                     (
-                        model.Q[j,:],
-                        transition(model, m, s, a, model.Q[j,:], p)
+                        Q[j],
+                        transition(model, m, s, a, Q[j], p)
                     )
                 )
             )
@@ -228,17 +288,15 @@ module NoLib
         p = model.p
 
         i = ss[1][1]
-        # if typeof(ss[1]) <: Tuple
-        #     i = ss[1][1]
-        # else
-        #     i = ss[1]
-        # end
 
-        (m, s) = ss[2]
+        Q = model.grid.g1.points
+
+        n_m = length(model.m)
+        (m, s) = (ss[2][1:n_m], ss[2][n_m+1:end])
 
         for j in 1:size(model.P, 2)
 
-            S = transition(model, m, s, a, model.Q[j,:], p)
+            S = transition(model, m, s, a, Q[j], p)
 
             for (w, i_S) in trembling__hand(model.grid.g2, S)
 
@@ -248,13 +306,15 @@ module NoLib
                     (
                         (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
 
-                        (model.Q[j,:], model.grid.g2[i_S])
+                        (Q[j], model.grid.g2[i_S])
                     )
                 )
                 if linear_index
-                    res::Tuple{Float64, Tuple{Int64, Tuple{SVector{1},SVector{1}}}}
+                    res
+                    # res::Tuple{Float64, Tuple{Int64, Tuple{SVector{1},SVector{1}}}}
                 else
-                    res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
+                    res
+                    # res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
                 end
                 @yield res
             end
@@ -324,197 +384,7 @@ module NoLib
     #     end
     # end
 
-    function F0(model, s, x::SVector, xfut::GArray)
-        tot = SVector((x*0)...)
-        for (w, S) in τ(model, s, x)
-            ind = (S[1], S[3])
-            X = xfut(ind...)
-            tot += w*arbitrage(model,s,x,S,X)
-        end
-        return tot
-    end
-
-
-    F(model, s, x::SVector, φ::GArray) = 
-        sum(
-             w*arbitrage(model,s,x,S,φ(S[1], S[3])) 
-             for (w, S) in τ(model, s, x)
-        )
-
-    # F(model, s, x::SVector, φ::GArray).dφ = 
-    #     sum(
-    #          w*arbitrage(model,s,x,S,φ(S)).dφ(S)
-    #          for (w, S) in τ(model, s, x)
-    #     )
-
-    F(model, controls::GArray, φ::GArray) =
-        GArray(
-            model.grid,
-            [F(model,s,x,φ) for (s,x) in zip(iti(model.grid), controls) ],
-        )
-
-    function F!(out, model, controls, φ) 
-        # for (n,(s,x)) in enumerate(zip(iti(model.grid), controls))
-        n=0
-        for s in iti(model.grid)
-            n += 1
-            x = controls.data[n]
-            out.data[n] = F(model,s,x,φ)
-        end
-        # end
-    end
-
-    dF(model, controls::GArray, φ::GArray) =
-        GArray(    # this shouldn't be needed
-            model.grid,
-            [
-                ForwardDiff.jacobian(u->F(model, s, u, φ), x)
-                for (s,x) in zip(iti(model.grid), controls) 
-            ]
-        )
-
-    function dF!(out, model, controls, φ) 
-        # for (n,(s,x)) in enumerate(zip(iti(model.grid), controls))
-        n=0
-        for s in iti(model.grid)
-            n += 1
-            x = controls.data[n]
-            out.data[n] = ForwardDiff.jacobian(u->F(model, s, u, φ), x)
-        end
-        # end
-    end
-
-    # function dF2!(out, model, controls, φ) 
-    #     # for (n,(s,x)) in enumerate(zip(iti(model.grid), controls))
-    #     n=0
-    #     for s in iti(model.grid)
-    #         n += 1
-    #         x = controls.data[n]
-    #         out.data[n] = ForwardDiff.jacobian(u->F(model, s, x, φ), φ)
-    #     end
-    #     # end
-    # end
-    
-
-    FdF(model, controls::GArray, φ::GArray) =
-        GArray(
-            model.grid,
-            [
-                (F(model,s,x,φ), ForwardDiff.jacobian(u->F(model, s, u, φ), x))
-                for (s,x) in zip(iti(model.grid), controls) 
-            ]
-        )
-
-
-    function F0(model, controls::GArray, xfut::GArray)
-
-        N = length(controls)
-        res = GArray(
-            model.grid,
-            zeros(typeof(controls[1]), N)
-        )
-        for (i,(s,x)) in enumerate(zip(iti(model.grid), controls))
-            res[i] = F(model,s,x,xfut)
-        end
-        return res
-    end
-
-
-
-    function dF0(model, controls::GArray, xfut::GArray)
-
-        N = length(controls)
-        res = deepcopy(controls)
-        dres = GArray(
-            model.grid,
-            zeros(typeof(res[1]*res[1]'), N)
-        )
-        for (i,(s,x)) in enumerate(zip(iti(model.grid), controls))
-            res[i] = F(model,s,x,xfut)
-            dres[i] = ForwardDiff.jacobian(u->F(model, s, u, xfut), x)
-        end
-        return res, dres
-    end
-    
-
-    # interpolating indexing
-    function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1<:SGrid where G2<:CGrid where d where d2 where T where U
-        g1 = xa.grid.g1
-        g2 = xa.grid.g2
-        dims = tuple(length(g1), (e[3] for e in g2.ranges)... )
-        # ranges = tuple( (range(e...) for e in g2.ranges)... )
-        v = view(reshape(xa.data, dims),i,:)
-        res = interp(g2.ranges, v, p...)
-        res
-    end
-    
-
-    dF2(model, s, x::SVector, φ::GArray, dφ::GArray) = 
-        sum(
-             w*ForwardDiff.jacobian(u->arbitrage(model,s,x,S,u), φ(S[1], S[3]))* dφ(S[1], S[3])
-             for (w, S) in τ(model, s, x)
-        )
-    
-    dF2(model, controls::GArray, φ::GArray, dφ::GArray) =
-        GArray(
-            model.grid,
-            [dF2(model,s,x,φ,dφ) for (s,x) in zip(iti(model.grid), controls) ],
-        )
-
-
-
-
-        function solve(model)
-            T=500
-             K=10
-              tol_ε=1e-8
-               tol_η=1e-6
-                verbose=false
-        
-            N = length(model.grid)
-            x0 = GArray(model.grid, [SVector(model.x) for n=1:N])
-            x1 = deepcopy(x0)
-        
-            dx = deepcopy(x0)
-            r0 = x0*0
-            J = dF0(model, x0, x0)[2]
-        
-            local x0
-            local x1
-        
-            for t=1:T
-                # r0 = F(model, x0, x0)
-                F!(r0, model, x0, x0)
-                ε = norm(r0)
-                if ε<tol_ε
-                    break
-                end
-                if verbose
-                    println("ϵ=$(ε)")
-                end
-                x1.data .= x0.data
-                for k=1:K
-                    # r = F(model, x1, x0)
-                    F!(r0, model, x1, x0)
-                    # J = dF(model, x1, x0)
-                    dF!(J, model, x1, x0)
-                    # dx = J\r0
-                    for n=1:length(r0)
-                        dx.data[n] = J.data[n]\r0.data[n]
-                    end
-                    e = norm(dx)
-                    # println("e=$(e)")
-                    x1.data .-= dx.data
-                    if e<tol_η
-                        break
-                    end
-                end
-                x0 = x1
-        
-            end
-            return x0
-        end
-        
+    include("time_iteration.jl")
 
 end # module
 
