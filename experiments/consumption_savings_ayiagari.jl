@@ -38,7 +38,7 @@ model = let
     s = SLVector(;y)
     x = SLVector(;c)
     y = SLVector(;K)
-    z = SLVector(;z)
+    z = SLVector(;z=0.0)
 
     p = SLVector(;β, γ, σ, ρ, cbar, α, δ)
 
@@ -54,7 +54,7 @@ model = let
     
     name = Val(:ayiagari)
 
-    (;name, m, s, x, y, p, P, grid)
+    (;name, m, s, x, y, z, p, P, grid)
 
 
 end
