@@ -18,11 +18,11 @@ model = let
     # r = 1.025
     # y = 1.0 # available income
     
-    K = 20
+    K = 20.0
     α = 0.36
     A = 1
     δ = 0.025
-    r = α*(1/K)^(1-α) - δ
+    r = 1+α*(1/K)^(1-α) - δ
     w = (1-α)*K^α
 
     y = w
@@ -38,6 +38,7 @@ model = let
     s = SLVector(;y)
     x = SLVector(;c)
     y = SLVector(;K)
+    z = SLVector(;z)
 
     p = SLVector(;β, γ, σ, ρ, cbar, α, δ)
 
@@ -85,99 +86,70 @@ arbitrage(model, m, s, x, M, S, X, p)
 
 sol = NoLib.time_iteration_3(model; verbose=false, improve=false)
 
+using Plots
 
+
+x0 = sol.solution
 
 P = NoLib.transition_matrix(model, sol.solution)
+
 μ = NoLib.ergodic_distribution(model, sol.solution)
 
-using Plots
-xvec = [e[1] for e in model.grid[1,:]]
-plot(xvec,μ[1,:])
-plot!(xvec,μ[2,:])
-plot!(xvec,μ[3,:])
-# how to plot distribution ?
-
-###
-
-model.p.r = 1.025
-
-sol_2 = NoLib.time_iteration_3(model; verbose=false, improve=false)
-μ_2 = NoLib.ergodic_distribution(model, sol_2.solution)
-scatter(xvec,μ_2[1,:])
-scatter!(xvec,μ_2[2,:])
-scatter!(xvec,μ_2[3,:])
-# how to plot distribution ?
-
-plot([e[2] for e in model.grid[:]],μ[:])
 
 
-# sol = NoLib.time_iteration_3(model; verbose=false, improve=true)
-
-###
-
-# Now compute the aggregate equilibrium condition
+using ForwardDiff
+using FiniteDiff
 
 
 
-function equilibrium(mod::typeof(model), xx, μ, y)
-    
-    # let's label our arguments
-    s = [NoLib.LVectorLike(merge(model.m, model.s),e)  for e in model.grid[:]]
-    x = NoLib.label_GArray(model.x, xx)
-    y = NoLib.LVectorLike(model.y, y)
-    p = model.p
+# using Plots
+# xvec = [e[1] for e in model.grid[1,:]]
+# plot(xvec,μ[1,:])
+# plot!(xvec,μ[2,:])
+# plot!(xvec,μ[3,:])
+# # how to plot distribution ?
 
-    sum( 
-        (s[i].y - x[i].c)*μ[i] 
-        for i in 1:length(model.grid)
-    ) - p.δ*y.K
-end
+# ###
 
+# model.p.r = 1.025
 
-function projection(mod::typeof(model), y)
-    
-    # let's label our arguments
-    p = model.p
+# sol_2 = NoLib.time_iteration_3(model; verbose=false, improve=false)
+# μ_2 = NoLib.ergodic_distribution(model, sol_2.solution)
+# scatter(xvec,μ_2[1,:])
+# scatter!(xvec,μ_2[2,:])
+# scatter!(xvec,μ_2[3,:])
+# # how to plot distribution ?
 
-    r = 1 + p.α*(1/y.K)^(1-p.α) - p.δ
-    w = (1-p.α)
-    
-    # w = 1.0
-
-    SLVector((;w, r))
-
-end
+# plot([e[2] for e in model.grid[:]],μ[:])
 
 
-s0_l = [NoLib.LVectorLike(merge(model.m, model.s),e)  for e in model.grid[:]]
-x0_l = NoLib.label_GArray(model.x, sol.solution)
+# # sol = NoLib.time_iteration_3(model; verbose=false, improve=true)
+
+# ###
+
+# # Now compute the aggregate equilibrium condition
 
 
-y = LVector(K=40)
+# s0_l = [NoLib.LVectorLike(merge(model.m, model.s),e)  for e in model.grid[:]]
+# x0_l = NoLib.label_GArray(model.x, sol.solution)
 
-equilibrium(model, sol.solution, μ, y)
-projection(model, y)
 
-using NoLib: cover
+# y = LVector(K=40)
 
-function residual(mod::typeof(model),y)
-    p = projection(model, y)
-    model.grid.g1.points .= [NoLib.cover(p, e) for e in model.grid.g1.points]
-    sol = NoLib.time_iteration_3(model; verbose=false, improve=false)
-    x = sol.solution
-    μ = NoLib.ergodic_distribution(model, x)
-    res = equilibrium(model, x, μ, y)
-    res
-end
+# equilibrium(model, sol.solution, μ, y)
+# projection(model, y)
+
+# using NoLib: cover
 
 
 
-residual(model, model.y)
 
-resid(u::Float64) = residual(model, SLVector(K=u))
+# residual(model, model.y)
 
-Kvec = range(15, 20;length=20)
-Rvec = [resid(e) for e in Kvec]
+# resid(u::Float64) = residual(model, SLVector(K=u))
 
-using Plots
-plot(Kvec, Rvec)
+# Kvec = range(15, 20;length=20)
+# Rvec = [resid(e) for e in Kvec]
+
+# using Plots
+# plot(Kvec, Rvec)

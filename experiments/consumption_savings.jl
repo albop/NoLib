@@ -5,7 +5,7 @@ using StaticArrays
 using LabelledArrays
 using NoLib: SGrid, CGrid, PGrid, GArray
 import NoLib: transition, arbitrage
-import NoLib: ⊗, ⟂
+import NoLib: ×, ⟂
 
 using QuantEcon: rouwenhorst
 
@@ -25,8 +25,7 @@ model = let
 
     m = SLVector(;y)
     s = SLVector(;w)
-    x = S
-    LVector(;c)
+    x = SLVector(;c)
     p = LVector(;β, γ, σ, ρ, r, cbar)
 
     mc = rouwenhorst(3,ρ,σ)
@@ -38,7 +37,7 @@ model = let
 
     N = 50
 
-    grid = SGrid(Q) ⊗ CGrid(((0.01,4.0,N),))
+    grid = SGrid(Q) × CGrid(((0.01,4.0,N),))
     
     name = Val(:consumption_savings)
 
@@ -75,9 +74,10 @@ transition(model, m, s, x, M, p)
 arbitrage(model, m, s, x, M, S, X, p)
 
 
-
-
 sol = NoLib.time_iteration_3(model; verbose=false, improve=false)
+
+
+
 
 μ = NoLib.ergodic_distribution(model, sol.solution)
 

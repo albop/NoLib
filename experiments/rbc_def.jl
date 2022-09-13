@@ -29,7 +29,7 @@ model = let
 
     exo = SGrid( [Q[i,:] for i=1:size(Q,1)] )
     endo = CGrid( ((0.1, 5.0, 100),) )
-    grid = PGrid(exo, endo)
+    grid = exo × endo
 
 
     (;m, s, x, p, P, Q, exo, endo, grid)
