@@ -1,6 +1,6 @@
 # Algorithms and model definitions
 
-----
+---
 
 # Linear Time iteration
 
@@ -12,9 +12,11 @@ $$s_{t+1} = g(s_{t}, x_{t}, \epsilon_t)$$
 - Euler equation (aka arbitrage)
 $$E_t [ f(s_t, x_t, s_{t+1}, x_{t+1}) ] = 0$$
 
-----
+---
 
 # Markov Decision Process with Continous Controls
+
+----
 
 ## General information
 
@@ -22,7 +24,7 @@ $$E_t [ f(s_t, x_t, s_{t+1}, x_{t+1}) ] = 0$$
     - state: $s_t \in \mathcal{S}$
     - action/control: $x_t \in \mathcal{X}(s_t)$
 - transition probabilities: $s_{t+1}$ follows a distribution $\tau(s_t, x_t)$ is a distribution in $\mathcal{S}$
-        , $(w^i, s^i)_i$
+        
 - optimality conditions:
     - $E_t[ f(s_t, x_t, s_{t+1}, x_{t+1})] = 0$
 - remark: for reinforcement learning / vfi we need:
@@ -174,7 +176,7 @@ If we take all grid points $s$  we can define:
 $$F(\overrightarrow{x_t}, \overrightarrow{x_{t+1}}) = (F(s, \overrightarrow{x_t}_{[s]}, \overrightarrow{x_{t+1}}))_{s\in \mathcal{G}} \in \left(R^{n_x}\right)^{|\mathcal{G}| }$$
 
 
-----
+---
 
 # Heterogenous agents
 
