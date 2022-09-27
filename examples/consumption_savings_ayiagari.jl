@@ -84,7 +84,7 @@ transition(model, m, s, x, M, p)
 arbitrage(model, m, s, x, M, S, X, p)
 
 
-sol = NoLib.time_iteration_3(model; verbose=false, improve=false)
+sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
 using Plots
 
@@ -92,9 +92,7 @@ using Plots
 x0 = sol.solution
 
 P = NoLib.transition_matrix(model, sol.solution)
-
 μ = NoLib.ergodic_distribution(model, sol.solution)
-
 
 
 using ForwardDiff

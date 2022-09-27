@@ -1,7 +1,5 @@
 using FiniteDiff
 
-
-
 function τ(model, ss::Tuple, a::SVector, p0, p1)
 
 
