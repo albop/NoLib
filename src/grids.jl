@@ -1,9 +1,13 @@
 
 abstract type AGrid{d} end
+import Base: eltype
+
+eltype(cg::AGrid{d}) where d = SVector{d, Float64}
 
 struct CGrid{d} <: AGrid{d}
     ranges::NTuple{d, Tuple{Float64, Float64, Int64}}
 end
+
 
 getindex(g::CGrid{1}, i::Int) = SVector{1}(
     g.ranges[1][1] + (g.ranges[1][2]-g.ranges[1][1])*( (i-1)/(g.ranges[1][3]-1))
@@ -20,6 +24,8 @@ function SGrid(Q::Matrix)
     d = size(Q,2)
     return SGrid{d}([SVector(Q[i,:]...) for i=1:size(Q,1)])
 end
+
+
 
 struct PGrid{G1, G2, d} <: AGrid{d}
     g1::G1
@@ -53,9 +59,40 @@ import Base: length
 import Base: getindex
 import Base: setindex!
 
-iti(sg::SGrid{d}) where d = enumerate(p for p in sg.points)
-iti(cg::CGrid{d}) where d = enumerate(  SVector(el...)    for el in Base.Iterators.product((range(r[1], r[2], r[3]) for r in cg.ranges)...) ) 
-iti(pg::PGrid) = ( ((i,j),(v1,v2)) for ((i,v1), (j,v2)) in Base.Iterators.product( (iti( pg.g1)), (iti(pg.g2)) ) )
+iti(sg::SGrid{d}) where d = enumerate(sg.points)
+# iti(cg::CGrid{d}) where d = enumerate( ( SVector(el...)    for el in Base.Iterators.product((range(r[1], r[2], r[3]) for r in cg.ranges)...) ) )
+
+# iti2(cg::CGrid{1}) = ( (range(cg.ranges[1]...)) )
+function iti(cg::CGrid{1}) 
+    a = cg.ranges[1][1]
+    b = cg.ranges[1][2]
+    n = cg.ranges[1][3]
+    ((i, SVector(a + (b-a)/(n-1)*i)) for i=0:(n-1))
+end
+
+
+# using ResumableFunctions
+
+# @resumable function iti(cg::CGrid{1}) 
+#     a = cg.ranges[1][1]
+#     b = cg.ranges[1][2]
+#     n = cg.ranges[1][3]
+#     for i=0:(n-1)
+#         @yield (i, SVector(a + (b-a)/(n-1)*i))
+#     end
+# end
+
+
+function iti(pg::PGrid) 
+    ( ((i,j),(v1,v2)) for ((i,v1), (j,v2)) in Base.Iterators.product( (iti( pg.g1)), (iti(pg.g2)) ) )
+end
+
+
+# iti(cg::CGrid{1}) = enumerate(SVector(el) for el in iti2(cg))
+
+# function iti(pg::PGrid) 
+#     ( ((i,j),(v1,v2)) for ((i,v1), (j,v2)) in Base.Iterators.product( (iti( pg.g1)), (iti(pg.g2)) ) )
+# end
 
 function enum(pg::PGrid; linear_index=false) 
     if !linear_index
@@ -71,3 +108,4 @@ length(pg::PGrid{G1, G2, d}) where G1 where G2 where d = length(pg.g1)*length(pg
 length(sg::SGrid{d}) where d = length(sg.points)
 length(cg::CGrid{d}) where d = prod(e[3] for e in cg.ranges)
 
+9

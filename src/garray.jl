@@ -5,6 +5,8 @@ struct GArray{G,T}
     data::Vector{T}
 end
 
+const GVector
+
 GArray(grid::G, x::AbstractVector{T}) where G where T = GArray{G,T}(grid, copy(x))
 
 
