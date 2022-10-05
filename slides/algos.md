@@ -168,7 +168,10 @@ $$E_{s'|s}[ f(s, \varphi(s), s',\varphi(s')] = 0$$
 
 Or: (full version)
 
-$$F(s, x, \varphi) = E_{s' \in \tau(s,x)}[ f(s, x, s',\varphi(s')] = 0$$
+$$F(s, x, \varphi) =
+
+
+E_{s' \in \tau(s,x)}[ f(s, x, s',\varphi(s')] = 0$$
 
 Note  when policy is approximated by gridpoint values $\varphi(s)=\mathcal{I}(s; \overrightarrow{x})$ so we can define $F(s,x,\overrightarrow{x}) \in R^{n_x}$
 If we take all grid points $s$  we can define:
@@ -199,4 +202,4 @@ $$F(\overrightarrow{x_t}, \overrightarrow{x_{t+1}}) = (F(s, \overrightarrow{x_t}
     - aggregate optimality
     $$\mathcal{A}(x_t, \mu_t, y_t)= \int_s A(s, x_t(s), y_t) d\mu_t (s) = 0$$
     - projection
-    $$p_t = P(y_t)
+    $$p_t = P(y_t)$$

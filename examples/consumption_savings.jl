@@ -27,7 +27,7 @@ model = let
 
     m = SLVector(;y)
     s = SLVector(;w)
-    x = SLVector(;c λ)
+    x = SLVector(;c, λ)
     p = LVector(;β, γ, σ, ρ, r, cbar)
 
     mc = rouwenhorst(3,ρ,σ)
@@ -57,28 +57,26 @@ end
 # ⟂ᶠ(a,b)
 
 function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SLArray, S::SLArray, X::SLArray, p)
-    eq = 1 - p.β*( X.c/x.c )^(-p.γ)*p.r
-    @warn "The euler equation is satisfied only if c<w. If c=w, it can be strictly positive."
-    eq2 = λ
-    return SLVector( (;res) )
+    eq = 1 - p.β*( X.c/x.c )^(-p.γ)*p.r - x.λ
+    # @warn "The euler equation is satisfied only if c<w. If c=w, it can be strictly positive."
+    eq2 = x.λ ⟂ s.w-x.c
+    return SLVector( (;eq, eq2) )
 end
 
-
-## Fix the issue with the complementarity
 
 
 ## Solve using time iteration
 sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
 ## Plot the decision rule
+using Plots
+
 
 ## Compute the ergodic distribution
-
 μ = NoLib.ergodic_distribution(model, sol.solution)
 
 
 ## Plot the ergodic distribution
-
 xvec = [e[1] for e in model.grid[1,:]]
 plot(xvec,μ[1,:])
 plot!(xvec,μ[2,:])
