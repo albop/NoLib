@@ -14,6 +14,21 @@ F(model, controls::GArray, φ::GArray) =
         ],
     )
 
+# function F!(out, model, controls::GArray, φ::GArray)
+#     out.data .= (F(model,s,x,φ) for (s,x) in zip(enum(model.grid), controls))
+#     nothing
+# end
+
+function F!(out, model, controls::GArray, φ::GArray)
+    n = 0
+    for s in enum(model.grid)
+        n += 1
+        x = controls[n]
+        out.data[n] = F(model, s, x, φ)
+    end
+end
+
+
 dF_1(model, controls::GArray, φ::GArray) =
     GArray(    # this shouldn't be needed
         model.grid,

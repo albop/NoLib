@@ -3,7 +3,7 @@ using NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SGrid, CGrid, PGrid, GArray
+using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum
 import NoLib: transition, arbitrage
 import NoLib: ×
 
@@ -50,6 +50,73 @@ function arbitrage(model::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::
     r = p.β*(C/c)^(-p.γ)*(1-p.δ + p.α*exp(M.z)*S.k^(p.α-1)) - 1
     return SLVector( (;r) )
 end
+
+i0 = 3
+s0_ = [NoLib.enum(model.grid)...][i0]
+s0 = [NoLib.enum(model.grid)...][i0]
+m0 = s0[2:end]
+φ = GVector(model.grid, [Iterators.repeated(SVector(model.x), length(model.grid))...])
+x0 = φ[3]
+S = [NoLib.τ(model, s0, x0)...][1][2]
+
+
+
+r = NoLib.F(model, φ, φ)
+reshape(r.data,2,100)
+
+
+
+
+
+function check_alloc(model, s0, x0, φ)
+    r = NoLib.F(model, s0, x0, φ)
+    t = sum(r)
+    return nothing
+end
+
+check_alloc(model, s0, x0, φ)
+
+@time check_alloc(model, s0, x0, φ)
+
+using BenchmarkTools
+function check_alloc_2(model, x, φ)
+    r = NoLib.F(model,x, φ)
+    for i=1:1000
+    r = NoLib.F(model,x, φ)
+    end
+    t = sum(sum(r))
+    return nothing
+end
+check_alloc_2(model, φ, φ)
+@time check_alloc_2(model, φ, φ)
+@benchmark check_alloc_2(model, φ, φ)
+
+
+function check_alloc_3(out, model, x, φ)
+    for i = 1:1000
+        NoLib.F!(out,model,x, φ)
+    end
+    t = sum(sum(out))
+    return nothing
+end
+
+out = deepcopy(φ)
+check_alloc_3(out, model, φ, φ)
+@benchmark check_alloc_3(out, model, φ, φ)
+
+
+
+function check_alloc_4(model, x, φ)
+    r = NoLib.F(model,x, φ)
+    t = sum(sum(e[1] for e in r))
+    return nothing
+end
+
+check_alloc_4( model, φ, φ)
+@benchmark check_alloc_4( model, φ, φ)
+
+
+NoLib.F(model, )
 
 
 ### Solve the model

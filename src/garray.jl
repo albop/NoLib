@@ -5,7 +5,7 @@ struct GArray{G,T}
     data::Vector{T}
 end
 
-const GVector
+const GVector{G,T} = GArray{G,T}
 
 GArray(grid::G, x::AbstractVector{T}) where G where T = GArray{G,T}(grid, copy(x))
 
@@ -54,7 +54,9 @@ function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1
     g2 = xa.grid.g2
     dims = tuple(length(g1), (e[3] for e in g2.ranges)... )
     # ranges = tuple( (range(e...) for e in g2.ranges)... )
-    v = view(reshape(xa.data, dims),i,:)
+    # v = view(reshape(xa.data, dims),i,:)
+    # v = view(reshape(xa.data, dims),i,:)
+    v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
     res = interp(g2.ranges, v, p...)
     res
 end

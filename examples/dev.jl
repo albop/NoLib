@@ -1,4 +1,4 @@
-using NoLib: SGrid, CGrid, ×, GArray, iti
+using NoLib: SGrid, CGrid, ×, GArray, iti, enum
 using StaticArrays
 
 P = @SMatrix [0.9 0.1; 0.1 0.9]
@@ -9,103 +9,102 @@ endo = CGrid( ((0.1, 5.0, 100),) )
 grid = exo × endo
 
 ga = GArray(grid, [SVector(0.2, 0.1) for i=1:length(grid)])
-res = [ga.data[1]]
 
 
-import Base: iterate
-Base.iterate(s::SGrid) = (s.points[1], 2)
-Base.iterate(s::SGrid, state) = state<=length(s) ? (s.points[state], state+1) : nothing
-
-Base.length(s::CGrid{1}) = s.ranges[1][3]
-Base.iterate(s::CGrid{1}) = (s.ranges[1][1], 1)
-Base.iterate(s::CGrid{1}, state) = state<length(s) ? let
-    a = s.ranges[1][1]
-    b = s.ranges[1][2]
-    n = length(s)
-    (a + state/(n-1) * (b-a), state+1)
-end : nothing
 
 
-function test_noalloc(exo,u=true)
-    if u
-        s = sum(exo)
-        t = sum(s)
 
-    else
-        if typeof(exo) <: SGrid
-            s = sum(exo.points)
-            t = sum(s)
-        elseif typeof(exo) <: CGrid{1}
-            s = sum(exo.ranges[1])
-            t = s
-        end
-    end
-    if t<-100000.0
+function test_noalloc(exo)
+    s = sum(exo)
+    t = sum(s)
+
+    if t < -100000.0
         return "HI"
     end
 end
 
-@time test_noalloc(exo, true)  # custom iterator
-@time test_noalloc(exo, false) # native iterator
-@time test_noalloc(endo, true)  # custom iterator
-@time test_noalloc(endo, false)  # custom iterator
+@time test_noalloc(exo)  # custom iterator
+@time test_noalloc(endo)  # custom iterator
+@time test_noalloc(grid)  # custom iterator
 
+
+
+@time test_noalloc(ga)
 
 # @time test(exo, false) # native iterator
 
 
 [endo...]
 [exo...]
+
 [grid...]
 
-
 ###
 
-using NoLib: PGrid, GVector
+import NoLib
 
-function iterate(ga::GVector{PGrid{G1, G2, d}, T}) where d where G1<:SGrid where G2<:CGrid{1} where T
-    # (SVector(ga.g1.points[1]..., ga.g2.ranges[1][1]))
-    v1,s1 = iterate(ga.g1)
-    v2,s2 = iterate(ga.g2)
-    return (SVector(v1..., v2...), (s1, s2))
-end
+import NoLib: PGrid
 
-function iterate(ga::GVector{PGrid{G1, G2, d}, T}, state) where d where G1<:SGrid where G2<:CGrid{1} where T
+# function G(g, i::Int, j::Int)
+#     (g.g1[i][1], g.g2[j][1])
+# end
 
-    s1, s2 = state
+# function GG(g::PGrid, i::Int, j::Int) 
+#     e = SVector(g.g1[i]...,g.g2[j]...)
+#     # if  t < -10000.0
+#     #     println("HO")
+#     # end
+#     # (g.g1[i][1],g.g2[j][1])
+#     # SVector(1.0, 2.0)
+# end
 
-    
+# function GGG(g::PGrid{SGrid{d1}, CGrid{d2}, d}, i::Int, j::Int) where d where d1 where d2
+#     e = SVector{d,Float64}(g.g1[i][1],g.g2[j][1])
+#     # if  t < -10000.0
+#     #     println("HO")
+#     # end
+#     # (g.g1[i][1],g.g2[j][1])
+#     # SVector(1.0, 2.0)
+# end
 
-    if s2 === nothing
-        return nothing
-    else
-        if s1 === nothing
-            v_1, s__1 = iterate(ga.g1)
-        else
-            v_1, s__1 = iterate(ga.g1, s1)
-        end
-        v_2, s__2 = iterate(ga.g2, s2)
+import NoLib: getit
+
+function test_eachindex(g)
+
+    s = sum(g[2] for g in enum(g))
+    t = sum(s)
+
+    #  return t
+    if t < -100000.0
+        return "HI"
     end
-    # (SVector(ga.g1.points[1]..., ga.g2.ranges[1][1]))
-    v1,s1 = iterate(ga.g1)
-    v2,s2 = iterate(ga.g2)
-    return (SVector(v1..., v2...), (s1, s2))
 end
 
+@time test_eachindex(grid)
+
+@code_warntype test_eachindex(grid)
 
 
-###
+
+import NoLib
 
 
 
 
-function test_iterate(ga, res)
+@time test_noalloc_enum(grid)
+
+@allocated test_noalloc_enum(grid)
+
+
+function test_iterate(ga)
     z0 = zero(eltype(ga))
     for e in ga.data
         z0 += e
     end
-    res[1] = z0
-    return
+    t = sum(z0)
+    if t<0.000
+        println(" HIe")
+    end
 end
 
 (@allocated test_iterate(ga, res)) == 0
