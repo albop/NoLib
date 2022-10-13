@@ -9,9 +9,11 @@ struct CGrid{d} <: AGrid{d}
     ranges::NTuple{d, Tuple{Float64, Float64, Int64}}
 end
 
-getindex(g::CGrid{1}, i::Int) = SVector{1}(
-    g.ranges[1][1] + (g.ranges[1][2]-g.ranges[1][1])*( (i-1)/(g.ranges[1][3]-1))
-)
+
+
+# getindex(g::CGrid{1}, i::Int) = SVector{1}(
+#     g.ranges[1][1] + (g.ranges[1][2]-g.ranges[1][1])*( (i-1)/(g.ranges[1][3]-1))
+# )
 
 getindex(g::CGrid{1}, ::Colon) = [SVector(i) for i in range(g.ranges[1]...)]
 

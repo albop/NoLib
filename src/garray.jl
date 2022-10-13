@@ -1,13 +1,13 @@
 ## GArrays
 
-struct GArray{G,T}
+struct GArray{G,U}
     grid::G
-    data::Vector{T}
+    data::U
 end
 
 const GVector{G,T} = GArray{G,T}
 
-GArray(grid::G, x::AbstractVector{T}) where G where T = GArray{G,T}(grid, copy(x))
+# GArray(grid::G, x::T) where G where T = GArray{G,T}(grid, copy(x))
 
 
 norm(v::GArray) = maximum(u->maximum(abs, u), v.data)
@@ -31,7 +31,7 @@ setindex!(a::GArray{PGrid{G1, G2, d}, T}, v, i::Int, j::Int) where G1 where G2 w
 
 GDist{G} = GArray{G, Float64}
 
-eltype(g::GArray{G,T}) where G where T = T
+eltype(g::GArray{G,T}) where G where T = eltype(T)
 
 # warning: these functions don't copy any data
 ravel(g::GArray) = reinterpret(Float64, g.data)
@@ -56,7 +56,8 @@ function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1
     # ranges = tuple( (range(e...) for e in g2.ranges)... )
     # v = view(reshape(xa.data, dims),i,:)
     # v = view(reshape(xa.data, dims),i,:)
-    v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
+    # v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
+    v = view(xa.data, :) #1d only
     res = interp(g2.ranges, v, p...)
     res
 end
@@ -89,7 +90,7 @@ import Base: *, \, +, -, /
 
 import Base: convert
 
-function Base.convert(::typeof(Matrix), A::GArray{G,T}) where G where T <:SMatrix{p, q, Float64, k}  where p where q where k
+function Base.convert(::typeof(Matrix), A::GArray{G,Vector{T}}) where G where T <:SMatrix{p, q, Float64, k}  where p where q where k
     N = length(A.data)
     n0 = N*p
     n1 = N*q

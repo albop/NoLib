@@ -4,6 +4,7 @@ authors = ["Winant Pablo <pablo.winant@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Continuables = "79afa230-ca09-11e8-120b-5decf7bf5e25"
