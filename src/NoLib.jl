@@ -18,7 +18,7 @@ module NoLib
     include("model.jl")
     include("simul.jl")
     include("time_iteration.jl")
-    include("hetag.jl")
+    # include("hetag.jl")
 
 end # module
 

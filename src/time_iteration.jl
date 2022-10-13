@@ -10,55 +10,64 @@ F(model, controls::GArray, φ::GArray) =
         model.grid,
         [
             F(model,s,x,φ)
-            for (s,x) in zip(iti(model.grid), controls)
+            for (s,x) in zip(enum(model.grid), controls)
         ],
     )
 
-# function F!(out, model, controls::GArray, φ::GArray)
-#     out.data .= (F(model,s,x,φ) for (s,x) in zip(enum(model.grid), controls))
-#     nothing
-# end
 
 function F!(out, model, controls::GArray, φ::GArray)
-    n = 0
-    for s in enum(model.grid)
-        n += 1
-        x = controls[n]
-        out.data[n] = F(model, s, x, φ)
+    for (n, (s,x)) in enumerate(zip(enum(model.grid), controls))
+        out[n] = F(model,s,x,φ)
     end
-end
+end   #### no alloc
 
+## no alloc
+dF_1(model, s, x, φ) = ForwardDiff.jacobian(u->F(model, s, u, φ), x)
 
 dF_1(model, controls::GArray, φ::GArray) =
     GArray(    # this shouldn't be needed
         model.grid,
         [
-            ForwardDiff.jacobian(u->F(model, s, u, φ), x)
-            for (s,x) in zip(iti(model.grid), controls) 
+            dF_1(model, s, x, φ)
+            for (s,x) in zip(enum(model.grid), controls) 
         ]
     )
+
+function dF_1!(out, model, controls::GArray, φ::GArray)
+    for (n, (s,x)) in enumerate(zip(enum(model.grid), controls))
+        out[n] = ForwardDiff.jacobian(u->F(model, s, u, φ), x)
+    end
+end    #### no alloc
+    
+
+
+
 
 dF_2(model, s, x::SVector, φ::GArray, dφ::GArray) = 
     sum(
             w*ForwardDiff.jacobian(u->arbitrage(model,s,x,S,u), φ(S))* dφ(S)
             for (w, S) in τ(model, s, x)
-    )
+    )   ### no alloc
 
 
 dF_2(model, controls::GArray, φ::GArray, dφ::GArray) =
     GArray(
         model.grid,
-        [(dF_2(model,s,x,φ,dφ)) for (s,x) in zip(iti(model.grid), controls) ],
+        [(dF_2(model,s,x,φ,dφ)) for (s,x) in zip(enum(model.grid), controls) ],
     )
+
+function dF_2!(out::GArray, model, controls::GArray, φ::GArray, dφ::GArray)
+    for (n, (s,x)) in enumerate(zip(enum(model.grid), controls))
+        out[n] = dF_2(model, s, x, φ, dφ)
+    end
+end   
+    
 
 using LinearMaps
 
 dF_2(model, x::GArray, φ::GArray) = let
     n = length(φ)*length(eltype(φ))
     fun = u->(ravel(dF_2(model, x, φ, unravel(x, u))))
-    xxx = ravel(x)
-    # return xxx
-    e = fun(xxx)
     LinearMap(
         fun,
         n,
