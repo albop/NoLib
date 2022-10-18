@@ -2,53 +2,53 @@ using CUDA
 using Test
 using CUDA
 
-N = 100
-x_d = CUDA.fill(1.0f0, N)  # a vector stored on the GPU filled with 1.0 (Float32)
-y_d = CUDA.fill(2.0f0, N)  # a vector stored on the GPU filled with 2.0
+# N = 100
+# x_d = CUDA.fill(1.0f0, N)  # a vector stored on the GPU filled with 1.0 (Float32)
+# y_d = CUDA.fill(2.0f0, N)  # a vector stored on the GPU filled with 2.0
 
-function gpu_add1!(y, x)
-    for i = 1:length(y)
-        @inbounds y[i] += x[i]
-    end
-    return nothing
-end
+# function gpu_add1!(y, x)
+#     for i = 1:length(y)
+#         @inbounds y[i] += x[i]
+#     end
+#     return nothing
+# end
 
-fill!(y_d, 2)
+# fill!(y_d, 2)
 
-@cuda gpu_add1!(y_d, x_d)
+# @cuda gpu_add1!(y_d, x_d)
 
-@test all(Array(y_d) .== 3.0f0)
-
-
-function gpu_add2!(y, x)
-    index = threadIdx().x    # this example only requires linear indexing, so just use `x`
-    stride = blockDim().x
-    for i = index:stride:length(y)
-        @inbounds y[i] += x[i]
-    end
-    return nothing
-end
-
-fill!(y_d, 2)
-@cuda threads=256 gpu_add2!(y_d, x_d)
-@test all(Array(y_d) .== 3.0f0)
+# @test all(Array(y_d) .== 3.0f0)
 
 
-function gpu_add3!(model, y, x)
-    index = threadIdx().x    # this example only requires linear indexing, so just use `x`
-    stride = blockDim().x
-    st = sum(i for i=1:10)
+# function gpu_add2!(y, x)
+#     index = threadIdx().x    # this example only requires linear indexing, so just use `x`
+#     stride = blockDim().x
+#     for i = index:stride:length(y)
+#         @inbounds y[i] += x[i]
+#     end
+#     return nothing
+# end
+
+# fill!(y_d, 2)
+# @cuda threads=256 gpu_add2!(y_d, x_d)
+# @test all(Array(y_d) .== 3.0f0)
+
+
+# function gpu_add3!(model, y, x)
+#     index = threadIdx().x    # this example only requires linear indexing, so just use `x`
+#     stride = blockDim().x
+#     st = sum(i for i=1:10)
     
-    for i = index:stride:length(y)
-        @inbounds y[i] += x[i] * st[1]
-    end
-    return nothing
-end
+#     for i = index:stride:length(y)
+#         @inbounds y[i] += x[i] * st[1]
+#     end
+#     return nothing
+# end
 
 
-fill!(y_d, 2)
-@cuda threads=256 gpu_add3!(model, y_d, x_d)
-@test all(Array(y_d) .== 3.0f0)
+# fill!(y_d, 2)
+# @cuda threads=256 gpu_add3!(model, y_d, x_d)
+# @test all(Array(y_d) .== 3.0f0)
 
 
 include("neoclassical_model.jl")
@@ -92,7 +92,7 @@ import Adapt
 import Adapt
 Adapt.@adapt_structure NoLib.GArray
 
-r_gpu = Adapt.adapt(CuArray, deepcopy(φ) )
+r_gpu = Adapt.adapt(CuArray, deepcopy(φ*0) )
 φ_gpu = Adapt.adapt(CuArray, φ) 
 
 
@@ -105,29 +105,59 @@ y = CUDA.fill(2.0f0, N)  # a vector stored on the GPU filled with 2.0
 
 
 
+using CUDA
+using CUDAKernels # Required to access CUDADevice
+using KernelAbstractions
 
 
-using StaticArrays
+@kernel function mul2_kernel(A)
+    I = @index(Global)
+    A[I] = 2 * A[I]
+  end
 
-import NoLib
-
-NoLib.time_iteration(model)
-
-isbitstype(typeof(model))
-v1 = [0.2, 0.4]
-v2 = (2,3)
-
-v = @SVector [0.4, 0.3]
-isbitstype(typeof(v1))
-
-isbitstype(typeof(v2))
-isbitstype(typeof(2))
-isbits(v)
+A = CuArray(ones(1024, 1024))
+ev = mul2_kernel(CUDADevice(), 16)(A, ndrange=size(A))
+wait(ev)
+all(A .== 2.0)
 
 
+@kernel function KGPU(model, r, φ)
 
-using LabelledArrays
+    # c = @index(Global, Cartesian)
+    # i,j = c.I
+    n = @index(Global)
 
-w = SLVector(;a=4.0, b=43.0)
+    # q,j = divrem(n, 50)
 
-isbits(w)
+    # i = q+1
+
+    # s_ = model.grid[i,j]
+    # s = ((i,j), s_)
+    # x = φ[i,j]
+    
+    # rr = x*0
+    # for (w,S) in NoLib.τ(model, s, x)
+    #     rr += w*NoLib.arbitrage(model,s,x,S,φ(S))
+    # end
+    # # rr = sum(
+    # #     w*NoLib.arbitrage(model,s,x,S,φ(S)) 
+    # #     for (w,S) in NoLib.τ(model, s, x)
+    # # )
+        
+    # # r[i,j] = rr
+    # r.data[n] = rr
+
+    φ.data[n] = φ.data[n] * 2
+    # xx = φ.data[n]
+    # r.data[n] = xx
+        
+end
+
+ev = KGPU(CUDADevice(), 64)
+
+event = ev(model, r_gpu, φ_gpu,  ndrange=size(2,50))
+
+wait(event)
+
+r_sol = Adapt.adapt(Array, r_gpu)
+φ_sol = Adapt.adapt(Array, φ_gpu)
