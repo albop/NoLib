@@ -89,11 +89,7 @@ x0 = φ[1]
 
 import Adapt
 
-import Adapt
 Adapt.@adapt_structure NoLib.GArray
-
-r_gpu = Adapt.adapt(CuArray, deepcopy(φ*0) )
-φ_gpu = Adapt.adapt(CuArray, φ) 
 
 
 # N = 100
@@ -128,9 +124,9 @@ import KernelAbstractions.Extras.LoopInfo: @unroll
 
     n = @index(Global)
 
-    @inbounds s_ = model.grid[i,j]
+    s_ = model.grid[i,j]
     s = ((i,j), s_)
-    @inbounds x = φ[i,j]
+    x = φ[i,j]
     
     rr = x*0
     for (w,S) in NoLib.τ(model, s, x)
@@ -141,16 +137,18 @@ import KernelAbstractions.Extras.LoopInfo: @unroll
     #     for (w,S) in NoLib.τ(model, s, x)
     # )
         
-    # r[i,j] = rr
-    @inbounds r.data[i,j] = rr
+    r[i,j] = rr
 
         
 end
 
-ev = KGPU(CUDADevice(), 128)
+ev = F_gpu(CUDADevice(), 128)
 
-event = ev(model, r_gpu, φ_gpu,  ndrange=(2,500))
-wait(event)
+ev2 = F_gpu(CPU(), 4)
+
+
+
+
 
 # r_sol = Adapt.adapt(Array, r_gpu)
 # φ_sol = Adapt.adapt(Array, φ_gpu)
@@ -162,14 +160,20 @@ wait(event)
 
 function timing(K, φ0)
     r = deepcopy(φ0)
+    local event
     for k=1:K
         NoLib.F!(r, model, φ0, φ0)
+        # event = ev2(model, r, φ0,  ndrange=(2,500))
+        r *= 0.0000001
+        φ0 += r
     end
+    # wait(event)
     return r
+
 end
 
 res_cpu = timing(10000, φ)
-@time timing(10000, φ)
+@time timing(10000, φ);
 
 
 function timing_gpu(K, φ0)
@@ -180,6 +184,9 @@ function timing_gpu(K, φ0)
         event = ev(model, r_gpu, φ_gpu,  ndrange=(2,500))
             # @synchronize
         # wait(event)
+        r_gpu *= 0.0000001
+        φ_gpu += r_gpu
+
     end
     wait(event)
     r_sol = Adapt.adapt(Array, r_gpu)
@@ -188,6 +195,6 @@ end
 
 res_gpu = timing_gpu(10000, φ)
 
-@time timing_gpu(10000, φ)
+@time timing_gpu(10000, φ);
 
-err = maximum(u->maximum(abs.(u)), r_cpu - r_gpu)
+err = maximum(u->maximum(abs.(u)), res_cpu - res_gpu)

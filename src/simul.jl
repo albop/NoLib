@@ -10,8 +10,6 @@ function τ(model, ss::Tuple, a::SVector)
 
     Q = model.grid.g1.points
 
-    j = 1
-
     it = (
         (
             model.P[i,j],
