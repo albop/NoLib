@@ -16,6 +16,15 @@ F(model, controls::GArray, φ::GArray) =
 
 
 function F!(out, model, controls::GArray, φ::GArray)
+    Threads.@threads for n in 1:length(model.grid)
+        i, j = NoLib.from_linear(model.grid, n)
+        s_ = model.grid[n]
+        s = ((i,j), s_)
+        x = controls[n]
+         out[n] = F(model,s,x,φ)
+    end
+end
+function F!(out, model, controls::GArray, φ::GArray)
     for (n, (s,x)) in enumerate(zip(enum(model.grid), controls))
         out[n] = F(model,s,x,φ)
     end
