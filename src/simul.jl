@@ -5,14 +5,16 @@
 function τ(model, ss::Tuple, a::SVector)
 
 
-    p = model.p
+    p = model.calibration.p
     (i,_),(m, s) = ss # get current state values
 
     Q = model.grid.g1.points
 
+    P = model.transition
+
     it = (
         (
-            model.P[i,j],
+            P[i,j],
             (
                 (j,),
                 (
@@ -21,7 +23,7 @@ function τ(model, ss::Tuple, a::SVector)
                 )
             )
         )
-        for j in 1:size(model.P, 2)
+        for j in 1:size(P, 2)
     )
 
     it
@@ -51,27 +53,28 @@ using ResumableFunctions
 
 @resumable function τ_fit(model, ss::Tuple, a::SVector; linear_index=false)
 
-    p = model.p
+    p = model.calibration.p
 
     i = ss[1][1]
 
     Q = model.grid.g1.points
 
-    n_m = length(model.m)
+    n_m = length(model.calibration.m)
 
     # (m, s) = (ss[2][1:n_m], ss[2][n_m+1:end])
     # (m, s) = (ss[2][1], ss[2][2])
     (i,_),(m, s) = ss
 
+    P = model.transition
 
-    for j in 1:size(model.P, 2)
+    for j in 1:size(P, 2)
 
         S = transition(model, m, s, a, Q[j], p)
 
         for (w, i_S) in trembling__hand(model.grid.g2, S)
 
             res = (
-                model.P[i,j]*w,
+                P[i,j]*w,
 
                 (
                     (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
