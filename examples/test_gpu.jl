@@ -1,27 +1,14 @@
-using CUDA
 using Test
 using CUDA
 using Adapt
+using CUDAKernels # Required to access CUDADevice
+using KernelAbstractions
 
 
 include("neoclassical_model.jl")
-
 Adapt.@adapt_structure NoLib.GArray
 
-using CUDA
 
-
-φ = GVector(model.grid, [Iterators.repeated(SVector(model.x), length(model.grid))...])
-# i0 = 3
-# s0_ = [NoLib.enum(model.grid)...][i0]
-# s0 = [NoLib.enum(model.grid)...][i0]
-# m0 = s0[2:end]
-
-# s0 = [enum(model.grid)...][1]
-# x0 = φ[1]
-
-using CUDAKernels # Required to access CUDADevice
-using KernelAbstractions
 
 @kernel function F_(@Const(model), r, @Const(φ))
 
@@ -38,12 +25,14 @@ using KernelAbstractions
     for (w,S) in NoLib.τ(model, s, x)
         rr += w*NoLib.arbitrage(model,s,x,S,φ(S))
     end
+
     # rr = sum(
     #     w*NoLib.arbitrage(model,s,x,S,φ(S)) 
     #     for (w,S) in NoLib.τ(model, s, x)
-    # )
-        
-    r[n] = rr
+    # )      
+    # r[n] = rr
+
+    r[i,j] = rr
 
 end
 

@@ -5,7 +5,9 @@ using StaticArrays
 using LabelledArrays
 using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid
 import NoLib: transition, arbitrage
-import NoLib: ×
+import NoLib: ×, DModel
+
+
 
 ## Define Model
 
@@ -34,8 +36,11 @@ model = let
     endo = CGrid( ((0.1, 5.0, 500),) )
     grid = exo × endo
 
-
-    (;m, s, x, p, P, Q, exo, endo, grid)
+    DModel(
+        (;m, s, x, p,),
+        grid,
+        P
+    )
 
 end
 

@@ -95,7 +95,7 @@ function time_iteration_1(model;
 )
 
     N = length(model.grid)
-    x0 = GArray(model.grid, [SVector(model.x) for n=1:N])
+    x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
     x1 = deepcopy(x0)
 
     local x0
@@ -156,7 +156,7 @@ function time_iteration_2(model;
 )
 
     N = length(model.grid)
-    x0 = GArray(model.grid, [SVector(model.x) for n=1:N])
+    x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
     x1 = deepcopy(x0)
 
     local x0
@@ -213,7 +213,7 @@ function time_iteration(model;
     version_check()
 
     N = length(model.grid)
-    x0 = GArray(model.grid, [SVector(model.x) for n=1:N])
+    x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
     x1 = deepcopy(x0)
 
     local x0
