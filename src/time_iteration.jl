@@ -71,7 +71,8 @@ function dF_2!(out::GArray, model, controls::GArray, φ::GArray, dφ::GArray)
         out[n] = dF_2(model, s, x, φ, dφ)
     end
 end   
-    
+
+include("dev_L2.jl")
 
 using LinearMaps
 
@@ -207,16 +208,21 @@ function time_iteration(model;
     tol_ε=1e-8,
     tol_η=1e-6,
     verbose=false,
-    improve=true
+    improve=true,
+    x0=nothing
 )
 
     version_check()
 
     N = length(model.grid)
-    x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
+    if x0===nothing
+        x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
+    else
+        x0 = deepcopy(x0)
+    end
     x1 = deepcopy(x0)
 
-    local x0
+    # local x0
     local x1
     local t
 
@@ -256,16 +262,26 @@ function time_iteration(model;
             # x = (I-T')\(xnn - T' xn)
 
             # TODO: accelerate this part
-            A = dF_1(model, x1, x0)
-            MA = convert(Matrix, A)
-            B = dF_2(model, x1, x0)
-            MB = convert(Matrix, B)
+            # A = dF_1(model, x1, x0)
+            # MA = convert(Matrix, A)
+            # B = dF_2(model, x1, x0)
+            # MB = convert(Matrix, B)
+            # Tp = -MA\MB
+            # u11 = (I-Tp)\(u1-Tp*u0)
+            # x0 = unravel(x0, u11) 
+
+            # # this version assumes same number of shocks
+            J = NoLib.dF_1(model, x1, x0)
             
-            Tp = -MA\MB
+            Tp = M_ij, S_ij = NoLib.compute_L_2(model, x1, x0)
+            M_ij .= J .\ M_ij
 
-            u11 = (I-Tp)\(u1-Tp*u0)
+            r = x1 - apply_L_2(Tp, x0)
+            x0 = invert(r, Tp; K=1000)
 
-            x0 = unravel(x0, u11) 
+            # @show norm(x0 - xx0)
+
+
             # compute+
         end
 
@@ -276,7 +292,7 @@ function time_iteration(model;
 
     end
 
-    return (;message="No Convergence", n_iterations=T)
+    return (;solution=x0, message="No Convergence", n_iterations=T)
 
 end
 
