@@ -1,17 +1,45 @@
-using NoLib: SGrid, CGrid, ×, GArray, iti, enum
+import NoLib
+using NoLib: SSGrid, CGrid, GArray, iti, enum, ×, GridDomain, CartesianDomain
 using StaticArrays
 
 P = @SMatrix [0.9 0.1; 0.1 0.9]
 Q = @SMatrix [-0.1; 0.1]
 
-exo = SGrid( [Q[i,:] for i=1:size(Q,1)] )
+exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
 endo = CGrid( ((0.1, 5.0, 100),) )
 grid = exo × endo
 
 ga = GArray(grid, [SVector(0.2, 0.1) for i=1:length(grid)])
 
 
+gg = GridDomain([SVector(1.0), SVector(2.0), SVector(2.5)])
+cc = CartesianDomain((10,), (0.0,), (10.0,))
 
+dom = gg × cc
+
+
+dis = NoLib.discretize(dom)
+
+values = [e.^2 for e in dis]
+
+import Base: ^
+
+(^)(dom::NoLib.ProductDomain, tp::Val{:exo}) = dom.grid_A
+(^)(dom::NoLib.ProductDomain, tp::Val{:endo}) = dom.grid_B
+
+ga = GArray(dis, values)
+
+fun = NoLib.DFun(dom, ga)
+
+using Adapt
+Adapt.@adapt_structure NoLib.DFun
+
+using CUDA
+Adapt.adapt(CuArray, fun)
+
+####
+####
+####
 
 
 function test_noalloc(exo)

@@ -5,6 +5,8 @@ module NoLib
     using StaticArrays
     using ForwardDiff
     
+    import LinearAlgebra: cross, norm, ×
+
     include("interp.jl")
     using NoLib.Interpolation: interp
     
@@ -18,6 +20,7 @@ module NoLib
     include("model.jl")
     include("simul.jl")
     include("time_iteration.jl")
+    include("funs.jl")
     # include("hetag.jl")
 
 end # module

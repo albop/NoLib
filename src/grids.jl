@@ -49,7 +49,7 @@ cover(m,v::SVector{d,T}) where d where T = SVector{d,T}(m...,v[length(m)+1:end].
 
 PGrid(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{typeof(g1), CGrid{d2}, d1+d2}(g1, g2)
 
-×(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid(g1,g2)
+cross(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid(g1,g2)
 
 import Base: getindex
 from_linear(g::PGrid{G1, G2, d}, n) where G1 where G2 where d = let x=divrem(n-1, length(g.g2)); (x[1]+1, x[2]+1) end
