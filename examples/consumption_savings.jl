@@ -4,7 +4,7 @@ const NL=NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SGrid, CGrid, PGrid, GArray
+using NoLib: SSGrid, CGrid, PGrid, GArray, DModel
 import NoLib: transition, arbitrage
 import NoLib: ×, ⟂
 
@@ -14,7 +14,7 @@ model = let
 
     β = 0.96
     γ = 4.0
-    σ = 0.1
+    σ = 0.01
     ρ = 0.0
     r = 1.02
     w = 1.0
@@ -37,13 +37,17 @@ model = let
     ## decide whether this should be matrix or smatrix
     Q = [SVector(e) for e in mc.state_values] 
 
-    N = 50
+    N = 200
 
-    grid = SGrid(Q) × CGrid(((0.01,4.0,N),))
+    grid = SSGrid(Q) × CGrid(((0.01,4.0,N),))
     
     name = Val(:consumption_savings)
 
-    (;name, m, s, x, p, P, Q, grid)
+    DModel(
+        (;m, s, x, p),
+        grid,
+        P
+    )
 
 
 end
@@ -66,11 +70,17 @@ end
 
 
 ## Solve using time iteration
-sol = NoLib.time_iteration(model; verbose=false, improve=false)
+sol = NoLib.time_iteration(model; verbose=true, improve=true);
 
 ## Plot the decision rule
 using Plots
+ga = sol.solution
+cvec = [ga(1,SVector(w))[1] for w in range(0.1, 4.0; length=100)]
+λvec = [ga(1,SVector(w))[2] for w in range(0.1, 4.0; length=100)]
+plot(cvec)
+plot!(λvec)
 
+NoLib.F(model, ga, ga)
 
 ## Compute the ergodic distribution
 μ = NoLib.ergodic_distribution(model, sol.solution)

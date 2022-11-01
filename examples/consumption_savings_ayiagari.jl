@@ -3,7 +3,7 @@ using NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SGrid, CGrid, PGrid, GArray
+using NoLib: SSGrid, CGrid, PGrid, GArray
 import NoLib: transition, arbitrage
 import NoLib: ×, ⟂
 
@@ -50,12 +50,15 @@ model = let
 
     N = 50
 
-    grid = SGrid(Q) × CGrid(((0.01,4.0,N),))
+    grid = SSGrid(Q) × CGrid(((0.01,4.0,N),))
     
     name = Val(:ayiagari)
 
-    (;name, m, s, x, y, z, p, P, grid)
-
+    DModel(
+        (;m, s, x, y, z, p),
+        grid,
+        P
+    )
 
 end
 
@@ -75,10 +78,6 @@ end
 
 
 
-(;m,s,x,p) = model
-M = m
-S = s
-X = x
 
 transition(model, m, s, x, M, p)
 arbitrage(model, m, s, x, M, S, X, p)

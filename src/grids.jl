@@ -52,7 +52,10 @@ PGrid(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{typeof(g1), CGrid{
 cross(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid(g1,g2)
 
 import Base: getindex
-from_linear(g::PGrid{G1, G2, d}, n) where G1 where G2 where d = let x=divrem(n-1, length(g.g2)); (x[1]+1, x[2]+1) end
+
+# from_linear(g::PGrid{G1, G2, d}, n) where G1 where G2 where d = let x=divrem(n-1, length(g.g2)); (x[1]+1, x[2]+1) end
+from_linear(g::PGrid{G1, G2, d}, n) where G1 where G2 where d = let x=divrem(n-1, length(g.g1)); (x[2]+1, x[1]+1) end
+
 getindex(g::PGrid{G1, G2, d}, n::Int) where G1 where G2 where d = getindex(g, from_linear(g, n)...)
 # getindex(g::PGrid{G1, G2, d}, i::Int64, j::Int64) where G1 where G2 where d = g.points[ i + length(g.g1)*(j-1)]
 function getindex(g::PGrid{G1, G2, d}, i::Int64, j::Int64) where G1<:SGrid{d1} where G2<:CGrid{d2} where d where d1 where d2
@@ -68,7 +71,7 @@ getindex(g::PGrid{G1, G2, d}, i::Int64, ::Colon) where G1 where G2 where d = g.g
 getindex(g::PGrid{G1, G2, d}, ::Colon, i::Int64) where G1 where G2 where d = g.g1[:]
 
 
-@inline to__linear_index(g::PGrid, ind::Tuple{Int64, Int64}) =  ind[1] + length(g.g1)*(ind[2]-1)
+# @inline to__linear_index(g::PGrid, ind::Tuple{Int64, Int64}) =  ind[1] + length(g.g1)*(ind[2]-1)
 
 
 import Base: iterate
@@ -81,7 +84,7 @@ import Base: setindex!
 
 
 function iti(pg::PGrid) 
-    ( ((i,j),(v1,v2)) for ((i,v1), (j,v2)) in Base.Iterators.product( (enumerate( pg.g1)), (enumerate(pg.g2)) ) )
+    ( ((i,j),(v1,v2)) for ((i,v1), (j,v2)) in Base.Iterators.product( (enumerate(pg.g1)),(enumerate( pg.g2)) ) )
 end
 
 
@@ -136,24 +139,24 @@ end : nothing
 function Base.iterate(g::PGrid{G1, G2, d}) where G1 where G2 where d
     x = g.g1[1]
     y = g.g2[1]
-    return (SVector{d, Float64}(x...,y...),(x,1,1))
+    return (SVector{d, Float64}(x...,y...),(y,1,1))
 end
 
 function Base.iterate(g::PGrid{G1,G2,d},state) where G1 where G2 where d
-    x,i,j=state
-    if j<length(g.g2)
-        j += 1
-        y = g.g2[j]
-        return (SVector{d,Float64}(x..., y...), (x,i,j))
+    y,i,j=state
+    if i<length(g.g1)
+        i += 1
+        x = g.g1[i]
+        return (SVector{d,Float64}(x..., y...), (y,i,j))
     else
-        if i==length(g.g1)
+        if j==length(g.g2)
             return nothing
         else
-            i += 1
-            j = 1
+            j += 1
+            i = 1
             x = g.g1[i]
             y = g.g2[j]
-            return (SVector{d,Float64}(x..., y...), (x,i,j))
+            return (SVector{d,Float64}(x..., y...), (y,i,j))
         end
     end
 end

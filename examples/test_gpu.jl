@@ -19,9 +19,9 @@ Adapt.@adapt_structure NoLib.GArray
     x = φ[i,j]
     
     rr = zero(typeof(x))
-    for (w,S) in NoLib.τ(model, s, x)
-        rr += w*(@inline NoLib.arbitrage(model,s,x,S,φ(S)))
-    end
+    # for (w,S) in NoLib.τ(model, s, x)
+    #     rr += w*(@inline NoLib.arbitrage(model,s,x,S,φ(S)))
+    # end
 
     # rr = sum(
     #     w*NoLib.arbitrage(model,s,x,S,φ(S)) 
@@ -33,13 +33,20 @@ Adapt.@adapt_structure NoLib.GArray
 
 end
 
+fun_gpu = fun_(CUDADevice())
+φ0 = GVector(model.grid, [Iterators.repeated(SVector(model.calibration.x), length(model.grid))...])
+r0 = deepcopy(φ0)
+r_gpu = Adapt.adapt(CuArray,r0)
+φ_gpu = Adapt.adapt(CuArray,φ0)
+fun_gpu(model, r_gpu, φ_gpu; ndrange=(2,500))
+
 using FLoops
 
 function fun_hand(model, r, φ; M=M)
 
     N = length(r)
 
-    for c in CartesianIndices((2,500))
+    @floop for c in CartesianIndices((2,500))
 
         i = c[1]
         j = c[2]

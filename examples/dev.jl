@@ -17,8 +17,7 @@ cc = CartesianDomain((10,), (0.0,), (10.0,))
 
 dom = gg × cc
 
-
-dis = NoLib.discretize(dom)
+dis = NoLib.discretize(dom; n=[20])
 
 values = [e.^2 for e in dis]
 

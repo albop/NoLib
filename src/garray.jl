@@ -56,9 +56,9 @@ function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1
     # ranges = tuple( (range(e...) for e in g2.ranges)... )
     # v = view(reshape(xa.data, dims),i,:)
     # v = view(reshape(xa.data, dims),i,:)
-    # v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
-    v = view(xa.data, :) #1d only
-    res = interp(g2.ranges, v, p...)
+    v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
+    # v = view(xa.data, :) #1d only
+    res = interp(g2.ranges, view(v,i,:), p...)
     res
 end
 

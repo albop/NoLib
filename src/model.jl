@@ -1,6 +1,7 @@
 # functions to help with model definition
 
 struct Model{A,B,C}
+    name::Symbol
     calibration::A
     domain::B
     transition::C
