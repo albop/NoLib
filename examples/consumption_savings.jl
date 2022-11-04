@@ -37,7 +37,7 @@ model = let
     ## decide whether this should be matrix or smatrix
     Q = [SVector(e) for e in mc.state_values] 
 
-    N = 200
+    N = 100
 
     grid = SSGrid(Q) × CGrid(((0.01,4.0,N),))
     
@@ -70,6 +70,8 @@ end
 
 
 ## Solve using time iteration
+sol = NoLib.time_iteration(model; verbose=true, improve=false, T=100);
+
 sol = NoLib.time_iteration(model; verbose=true, improve=true);
 
 ## Plot the decision rule

@@ -3,7 +3,7 @@ using NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SSGrid, CGrid, PGrid, GArray
+using NoLib: SSGrid, CGrid, PGrid, GArray, DModel
 import NoLib: transition, arbitrage
 import NoLib: ×, ⟂
 
@@ -29,6 +29,7 @@ model = let
 
     c = 0.9*y
 
+    λ = 0
 
     e = 0
     cbar = c
@@ -36,19 +37,19 @@ model = let
 
     m = SLVector(;w,r,e)
     s = SLVector(;y)
-    x = SLVector(;c)
+    x = SLVector(;c, λ)
     y = SLVector(;K)
     z = SLVector(;z=0.0)
 
     p = SLVector(;β, γ, σ, ρ, cbar, α, δ)
 
-    mc = rouwenhorst(3,ρ,σ)
+    mc = rouwenhorst(9,ρ,σ)
     
     P = mc.p
     ## decide whether this should be matrix or smatrix
     Q = [SVector(w,r,e) for e in mc.state_values] 
 
-    N = 50
+    N = 100
 
     grid = SSGrid(Q) × CGrid(((0.01,4.0,N),))
     
@@ -70,22 +71,26 @@ end
 
 
 function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SLArray, S::SLArray, X::SLArray, p)
-    lhs = 1 - p.β*( X.c/x.c )^(-p.γ)*M.r # >= 0
-    rhs = s.y - x.c # >= 0
-    res = lhs ⟂ rhs
-    return SLVector( (;res) )
+    eq = 1 - p.β*( X.c/x.c )^(-p.γ)*M.r - x.λ
+    # @warn "The euler equation is satisfied only if c<w. If c=w, it can be strictly positive."
+    eq2 = x.λ ⟂ s.y-x.c
+    return SLVector( (;eq, eq2) )
 end
-
-
-
-
-transition(model, m, s, x, M, p)
-arbitrage(model, m, s, x, M, S, X, p)
 
 
 sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
+
+## Plot the decision rule
 using Plots
+ga = sol.solution
+w,r,e = model.calibration.m
+cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
+cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
+λvec = [ga(2,SVector(y))[2] for y in range(0.1, 4.0; length=1000)]
+plot(cvec)
+plot!(λvec)
+
 
 
 x0 = sol.solution
@@ -100,10 +105,12 @@ using FiniteDiff
 
 
 # using Plots
-# xvec = [e[1] for e in model.grid[1,:]]
-# plot(xvec,μ[1,:])
-# plot!(xvec,μ[2,:])
-# plot!(xvec,μ[3,:])
+xvec = [e[1] for e in model.grid[1,:]]
+f = plot()
+for i=1:size(μ)[1]
+    plot!(xvec,μ[i,:])
+end
+f
 # # how to plot distribution ?
 
 # ###
@@ -127,16 +134,23 @@ using FiniteDiff
 # # Now compute the aggregate equilibrium condition
 
 
-# s0_l = [NoLib.LVectorLike(merge(model.m, model.s),e)  for e in model.grid[:]]
-# x0_l = NoLib.label_GArray(model.x, sol.solution)
+s0_l = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
+x0_l = NoLib.label_GArray(model.calibration.x, sol.solution)
 
 
-# y = LVector(K=40)
+y = LVector(K=40)
 
-# equilibrium(model, sol.solution, μ, y)
-# projection(model, y)
+function equilibrium(model, x, μ, y)
+    p = model.calibration.p
+    s0_l = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
+    sum( μ[i]*(s0_l[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
+end
 
-# using NoLib: cover
+equilibrium(model, x0_l, μ, y)
+
+
+projection(model, y)
+
 
 
 

@@ -4,6 +4,7 @@ abstract type SGrid{d} <: AGrid{d} end
 import Base: eltype, iterate
 
 eltype(cg::AGrid{d}) where d = SVector{d, Float64}
+ndims(cg::AGrid{d}) where d = d
 
 struct CGrid{d} <: AGrid{d}
     ranges::NTuple{d, Tuple{Float64, Float64, Int64}}

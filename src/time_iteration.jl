@@ -277,7 +277,7 @@ function time_iteration(model;
             M_ij .= J .\ M_ij
 
             r = x1 - apply_L_2(Tp, x0)
-            x0 = invert(r, Tp; K=10)
+            x0 = invert(r, Tp; K=1000)
 
             # @show norm(x0 - xx0)
 

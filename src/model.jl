@@ -39,6 +39,8 @@ function transition(model, m, s, x, M, p)
     return SVector(S...)
 end
 
+
+
 function arbitrage(model, m, s, x, M, S, X, p)
     m = LVectorLike(model.calibration.m, m)  # this does not keep the original type
     s = LVectorLike(model.calibration.s, s)
@@ -51,8 +53,15 @@ function arbitrage(model, m, s, x, M, S, X, p)
 end
 
 function arbitrage(model, s, x, S, X)
+
+    # @show s
+    # @show x
+    # @show S
+    # @show X
+    # throw(" Error")
     p = model.calibration.p
-    arbitrage(model, s[2][1], s[2][2], x, S[2][1], S[2][2], X, p)
+    n_k = length(model.calibration.m)
+    arbitrage(model, s[2][1:n_k], s[2][n_k+1:end], x, S[2][1:n_k], S[2][n_k+1:end], X, p)
 end
 
 function version_check()

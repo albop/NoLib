@@ -2,11 +2,15 @@
 ### transition function
 
 
-function τ(model, ss::Tuple, a::SVector)
+function τ(model::DModel, ss::T, a::SVector) where T<:Tuple
 
 
     p = model.calibration.p
-    (i,_),(m, s) = ss # get current state values
+    (i,_),(s_) = ss # get current state values
+
+    k  = length(model.calibration.m)
+    m = SVector(s_[1:k]...)
+    s = SVector(s_[k+1:end]...)
 
     Q = model.grid.g1.points
 
@@ -18,8 +22,10 @@ function τ(model, ss::Tuple, a::SVector)
             (
                 (j,),
                 (
-                    Q[j],
-                    transition(model, m, s, a, Q[j], p)
+                    SVector(
+                        Q[j]...,
+                        transition(model, m, s, a, Q[j], p)...
+                    )
                 )
             )
         )
