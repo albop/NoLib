@@ -3,7 +3,7 @@ using NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SSGrid, CGrid, PGrid, GArray, DModel
+using NoLib: SSGrid, CGrid, PGrid, GArray, DModel, LVectorLike
 import NoLib: transition, arbitrage
 import NoLib: ×, ⟂
 
@@ -96,7 +96,7 @@ plot!(λvec)
 x0 = sol.solution
 
 P = NoLib.transition_matrix(model, sol.solution)
-μ = NoLib.ergodic_distribution(model, sol.solution)
+μ0 = NoLib.ergodic_distribution(model, sol.solution)
 
 
 using ForwardDiff
@@ -107,8 +107,8 @@ using FiniteDiff
 # using Plots
 xvec = [e[1] for e in model.grid[1,:]]
 f = plot()
-for i=1:size(μ)[1]
-    plot!(xvec,μ[i,:])
+for i=1:size(μ0)[1]
+    plot!(xvec,μ0[i,:])
 end
 f
 # # how to plot distribution ?
@@ -134,23 +134,37 @@ f
 # # Now compute the aggregate equilibrium condition
 
 
-s0_l = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
-x0_l = NoLib.label_GArray(model.calibration.x, sol.solution)
 
 
 y = LVector(K=40)
 
-function equilibrium(model, x, μ, y)
+function equilibrium(model, x_, μ, y; diff=false)
     p = model.calibration.p
-    s0_l = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
-    sum( μ[i]*(s0_l[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
+    s = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
+    x = NoLib.label_GArray(model.calibration.x, x_)
+
+    f = u->LVectorLike(merge(model.calibration.m, model.calibration.s),u)
+    res = sum( μ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
+    if diff!=true
+        return [res]
+    else
+        res_x = dx -> sum( μ[i]*(-dx[i].c) for i=1:length(model.grid)) - y.K*p.δ
+        res_μ = dμ -> sum( dμ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
+        res_y = dy -> - dy.K*p.δ
+        return res, res_x, res_μ, res_y
+    end
+
 end
 
-equilibrium(model, x0_l, μ, y)
+equilibrium(model, x0, μ0, y; diff=true)
 
 
-projection(model, y)
+p0 = SVector(model.calibration.m[1:2]...)
 
+NoLib.F(model, x0, x0)
+NoLib.F(model, x0, x0, p0, p0)
+
+r, r_1, r_2, r_p0, r_p1 = NoLib.F(model, x0, x0, p0, p0; diff=true)
 
 
 
