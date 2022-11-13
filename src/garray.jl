@@ -70,7 +70,8 @@ function (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 w
     #### TODO: replace
     n_x =  ndims(xa.grid.g2)
     V = S[2]
-    s = SVector(V[end-n_x+1:end]...)
+    n = length(V)
+    s = SVector((V[i] for i=n-n_x+1:n)...)
     xa(S[1][1],s)
 end
 
@@ -98,7 +99,7 @@ import Base: *, \, +, -, /
 
 import Base: convert
 
-function Base.convert(::typeof(Matrix), A::GArray{G,Vector{T}}) where G where T <:SMatrix{p, q, Float64, k}  where p where q where k
+function Base.convert(::Type{Matrix}, A::GArray{G,Vector{T}}) where G where T <:SMatrix{p, q, Float64, k}  where p where q where k
     N = length(A.data)
     n0 = N*p
     n1 = N*q

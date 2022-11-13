@@ -11,10 +11,11 @@ function τ(model, ss::Tuple, a::SVector, p0, p1)
 
     (i,_),(s_) = ss # get current state values
 
+    # TODO: replace following block by one nonallocating function
     k  = length(model.calibration.m)
-    m = SVector(s_[1:k]...)
-    s = SVector(s_[k+1:end]...)
-
+    l = length(model.calibration.s)
+    m = SVector((s_[i] for i=1:k)...)
+    s = SVector((s_[i] for i=k+1:(k+l))...)
 
     it = (
         (
@@ -141,6 +142,12 @@ function F(model, controls::GArray, φ::GArray, p0, p1; diff=false)
     
     r_1 = dF_1(model, controls, φ, p0, p1)
     r_2 = dF_2(model, controls, φ, p0, p1)
+
+    N = length(model.grid)
+    n_x = length(eltype(controls))
+    n_p = length(p0)
+    
+    # ordering of the jacobian is: (n_x*N)*n_p
     r_p0 = FiniteDiff.finite_difference_jacobian(
         u->ravel(F(model, controls, φ, u, p1; diff=false)),
         p0
@@ -149,7 +156,18 @@ function F(model, controls::GArray, φ::GArray, p0, p1; diff=false)
         u->ravel(F(model, controls, φ, p0, u; diff=false)),
         p1
     )
-    return r, r_1, r_2, r_p0, r_p1
+
+    rm_p0 = reshape( view(r_p0, :), (n_x, N, n_p) )
+    rm_p1 = reshape( view(r_p1, :), (n_x, N, n_p) )
+
+    rr_p0 = permutedims(rm_p0, (1,3,2))
+    rr_p1 = permutedims(rm_p1, (1,3,2))
+
+    elt = SMatrix{n_x, n_p, Float64, n_x*n_p}
+    r_3 = GArray(model.grid, reinterpret(elt, rr_p0[:]))
+    r_4 = GArray(model.grid, reinterpret(elt, rr_p1[:]))
+
+    return r, r_1, r_2, r_3, r_4
 
 end
 
@@ -177,15 +195,40 @@ dF_2(model, controls::GArray, φ::GArray, dφ::GArray, p0, p1) =
 
 using LinearMaps
 
-dF_2(model, x::GArray, φ::GArray, p0, p1) = let
-    n = length(φ)*length(eltype(φ))
-    fun = u->(ravel(dF_2(model, x, φ, unravel(x, u), p0, p1)))
-    xxx = ravel(x)
-    # return xxx
-    e = fun(xxx)
-    LinearMap(
-        fun,
-        n,
-        n
-    )
+# dF_2(model, x::GArray, φ::GArray, p0, p1) = let
+#     n = length(φ)*length(eltype(φ))
+#     fun = u->(ravel(dF_2(model, x, φ, unravel(x, u), p0, p1)))
+#     xxx = ravel(x)
+#     # return xxx
+#     e = fun(xxx)
+#     LinearMap(
+#         fun,
+#         n,
+#         n
+#     )
+# end
+
+function dF_2(model, x::GArray, φ::GArray, p0, p1 )
+    # TODO: one should preallocate here
+    res = []
+    for (s,x) in zip(enum(model.grid), x)
+        l = []
+        for (w, S) in τ(model, cover(p0, s), x)
+            el = -w*ForwardDiff.jacobian(u->arbitrage(model,cover(p0,s),x,cover(p1,S),u), φ(S))
+            push!(l, (el, S))
+        end
+        push!(res, l)
+    end
+    N = length(res)
+    J = length(res[1])
+    tt = res[1][1]
+    M_ij = Array{typeof(tt[1])}(undef,N,J)
+    S_ij = Array{typeof(tt[2])}(undef,N,J)
+    for n=1:N
+        for j=1:J
+            M_ij[n,j] = res[n][j][1]
+            S_ij[n,j] = res[n][j][2]
+        end
+    end
+    return LF(model.grid, M_ij, S_ij)
 end

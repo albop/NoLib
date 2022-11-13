@@ -76,15 +76,6 @@ include("dev_L2.jl")
 
 using LinearMaps
 
-dF_2(model, x::GArray, φ::GArray) = let
-    n = length(φ)*length(eltype(φ))
-    fun = u->(ravel(dF_2(model, x, φ, unravel(x, u))))
-    LinearMap(
-        fun,
-        n,
-        n
-    )
-end
 
 
 function time_iteration_1(model;
@@ -261,28 +252,14 @@ function time_iteration(model;
             # x = xnn - T' (x - xn)
             # x = (I-T')\(xnn - T' xn)
 
-            # TODO: accelerate this part
-            # A = dF_1(model, x1, x0)
-            # MA = convert(Matrix, A)
-            # B = dF_2(model, x1, x0)
-            # MB = convert(Matrix, B)
-            # Tp = -MA\MB
-            # u11 = (I-Tp)\(u1-Tp*u0)
-            # x0 = unravel(x0, u11) 
-
             # # this version assumes same number of shocks
-            J = NoLib.dF_1(model, x1, x0)
-            
-            Tp = M_ij, S_ij = NoLib.compute_L_2(model, x1, x0)
-            M_ij .= J .\ M_ij
 
-            r = x1 - apply_L_2(Tp, x0)
+            J_1 = NoLib.dF_1(model, x1, x0)
+            J_2 =  NoLib.dF_2(model, x1, x0)
+            Tp = J_1 \ J_2
+            r = x1 - Tp * x0
             x0 = invert(r, Tp; K=1000)
 
-            # @show norm(x0 - xx0)
-
-
-            # compute+
         end
 
 

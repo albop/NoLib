@@ -8,9 +8,11 @@ function τ(model::DModel, ss::T, a::SVector) where T<:Tuple
     p = model.calibration.p
     (i,_),(s_) = ss # get current state values
 
+    # TODO: replace following block by one nonallocating function
     k  = length(model.calibration.m)
-    m = SVector(s_[1:k]...)
-    s = SVector(s_[k+1:end]...)
+    l = length(model.calibration.s)
+    m = SVector((s_[i] for i=1:k)...)
+    s = SVector((s_[i] for i=k+1:(k+l))...)
 
     Q = model.grid.g1.points
 

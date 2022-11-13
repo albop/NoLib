@@ -7,6 +7,9 @@ using NoLib: SSGrid, CGrid, PGrid, GArray, DModel, LVectorLike
 import NoLib: transition, arbitrage
 import NoLib: ×, ⟂
 
+# using ForwardDiff
+# using FiniteDiff
+
 using QuantEcon: rouwenhorst
 
 model = let 
@@ -81,36 +84,33 @@ end
 sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
 
-## Plot the decision rule
-using Plots
-ga = sol.solution
-w,r,e = model.calibration.m
-cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
-cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
-λvec = [ga(2,SVector(y))[2] for y in range(0.1, 4.0; length=1000)]
-plot(cvec)
-plot!(λvec)
-
-
-
-x0 = sol.solution
-
-P = NoLib.transition_matrix(model, sol.solution)
-μ0 = NoLib.ergodic_distribution(model, sol.solution)
-
-
-using ForwardDiff
-using FiniteDiff
-
-
-
+# ## Plot the decision rule
 # using Plots
-xvec = [e[1] for e in model.grid[1,:]]
-f = plot()
-for i=1:size(μ0)[1]
-    plot!(xvec,μ0[i,:])
-end
-f
+# ga = sol.solution
+# w,r,e = model.calibration.m
+# cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
+# cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
+# λvec = [ga(2,SVector(y))[2] for y in range(0.1, 4.0; length=1000)]
+# plot(cvec)
+# plot!(λvec)
+
+
+
+# x0 = sol.solution
+
+# P = NoLib.transition_matrix(model, sol.solution)
+# μ0 = NoLib.ergodic_distribution(model, sol.solution)
+
+
+
+
+# # using Plots
+# xvec = [e[1] for e in model.grid[1,:]]
+# f = plot()
+# for i=1:size(μ0)[1]
+#     plot!(xvec,μ0[i,:])
+# end
+# f
 # # how to plot distribution ?
 
 # ###
@@ -156,25 +156,17 @@ function equilibrium(model, x_, μ, y; diff=false)
 
 end
 
-equilibrium(model, x0, μ0, y; diff=true)
+# equilibrium(model, x0, μ0, y; diff=true)
 
 
+x0 = sol.solution
 p0 = SVector(model.calibration.m[1:2]...)
 
-NoLib.F(model, x0, x0)
-NoLib.F(model, x0, x0, p0, p0)
+@time r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
 
-r, r_1, r_2, r_p0, r_p1 = NoLib.F(model, x0, x0, p0, p0; diff=true)
+# renormalize to get: r, I , T, U, V
 
-
-
-
-# residual(model, model.y)
-
-# resid(u::Float64) = residual(model, SLVector(K=u))
-
-# Kvec = range(15, 20;length=20)
-# Rvec = [resid(e) for e in Kvec]
-
-# using Plots
-# plot(Kvec, Rvec)
+r = J_1 \ r
+T = J_1 \ J_2
+U = J_1 \ U
+V = J_1 \ V

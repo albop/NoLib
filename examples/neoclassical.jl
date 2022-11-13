@@ -4,8 +4,9 @@ using NoLib
 
 include("neoclassical_model.jl")
 
-NoLib.time_iteration(model, verbose=true, improve=true)
+J_1, J_2 = NoLib.time_iteration(model, verbose=true, improve=true)
 
+using BlockDiagonals
 
 i0 = 3
 s0_ = [NoLib.enum(model.grid)...][i0]

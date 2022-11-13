@@ -1,5 +1,12 @@
+import Base: *
 
-function compute_L_2(model, x::GArray, φ::GArray )
+struct LF{G, T, n_s}
+    grid::G
+    M_ij::Matrix{T}
+    S_ij::Matrix{Tuple{Tuple{Int64}, SVector{n_s, Float64}}}
+end
+
+function dF_2(model, x::GArray, φ::GArray )
     res = []
     for (s,x) in zip(enum(model.grid), x)
         l = []
@@ -20,20 +27,21 @@ function compute_L_2(model, x::GArray, φ::GArray )
             S_ij[n,j] = res[n][j][2]
         end
     end
-    return (M_ij, S_ij)
+    return LF(model.grid, M_ij, S_ij)
 end
 
 
 function apply_L_2!(dr, L2, dφ)
-    M_ij, S_ij = L2
-    N,K = size(L2[1])
+    (;M_ij, S_ij) = L2
+    N,K = size(M_ij)
     for n=1:N
-        dr[n] *= 0.0
+        t0 = dr.data[n]*0.0
         for k=1:K
             F_x = M_ij[n,k]
             S = S_ij[n,k]
-            dr[n] += F_x*dφ(S)
+            t0 += F_x*dφ(S)
         end
+        dr.data[n] = t0
     end
 end
 
@@ -67,3 +75,33 @@ function invert(dr, L2; K=1000, τ_η=1e-10)
     end
     return dx
 end
+
+import Base: /,*
+import LinearAlgebra: mul!
+
+*(L::LF, x0) = apply_L_2( L, x0)
+mul!(y0, L::LF, x0) = apply_L_2!(y0, L, x0)
+
+\(J, L::LF) = LF(L.grid, J.data .\ L.M_ij, L.S_ij)
+\(L::LF, r) = invert(r, L)
+
+using LinearMaps
+using BlockDiagonals
+convert(::Type{BlockDiagonal}, ga::GArray{G, Vector{T}}) where T where G = BlockDiagonal(ga.data)
+
+
+convert(::Type{Matrix}, L::LF) = convert(Matrix, convert(LinearMap,L))
+convert(::Type{LinearMap}, L::LF) = let
+    elt = eltype(L.M_ij)
+    p,q = size(elt)
+    N = length(L.grid)
+    fun = u->(ravel(L*GArray(L.grid, reinterpret(elt, u))))
+    LinearMap(
+        fun,
+        p*N,
+        q*N
+    )
+end
+
+
+
