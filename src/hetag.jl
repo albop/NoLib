@@ -1,5 +1,14 @@
 using FiniteDiff
 
+
+struct LinearOperator{From,To}
+    fun
+end
+
+import Base: *
+*(L::LinearOperator, x) = L.fun(x)
+
+
 function τ(model, ss::Tuple, a::SVector, p0, p1)
 
 
@@ -82,7 +91,6 @@ function τ_test(model, ss::Tuple, a::SVector, p0; linear_index=false)
                 res
                 # res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
             end
-            println(res)
 
         end
     end
@@ -135,32 +143,45 @@ end
     end
 end
 
-
 function G(model, μ::GDist{T}, x, p0; diff=true) where T
 
     μ1 = GArray(μ.grid, zeros(Float64, length(μ)))
     for ss in enum(model.grid)
         ss = cover(p0,ss)
         a = x[ss[1]...]
+        mass = μ[ss[1]...]
         for (w, (ind, _)) in τ_fit(model, ss, a, p0)
-            μ1[ind...] += w*μ[ind...]
+            μ1[ind...] += w*mass
         end
     end
 
     if !diff
         return μ1
     else
-        P = transition_matrix(model, x)
-        G_x = FiniteDiff.finite_difference_jacobian(
+
+        t_μ = typeof(μ)
+        # satisfying but apparently slower than P*μ
+
+        G_μ = LinearOperator{t_μ,t_μ}(
+            dμ->G(model, dμ, x, p0; diff=false)
+        )
+        mat_x = FiniteDiff.finite_difference_jacobian(
             u->ravel(G(model, μ, unravel(x,u), p0; diff=false)),
             ravel(x)
         )
-        G_p = FiniteDiff.finite_difference_jacobian(
+        G_x = LinearOperator{typeof(x),t_μ}(
+            u->unravel(μ, mat_x*ravel(u))
+        )
+        mat_p = FiniteDiff.finite_difference_jacobian(
             u->ravel(G(model, μ, x, u; diff=false)),
             p0
         )
+        G_p = LinearOperator{typeof(p0),t_μ}(
+            u->unravel(μ, mat_p*u)
+        )
         
-        return μ1, P, G_x, G_p
+        # the returned functions are inefficient by dimensionally consistent
+        return μ1, G_μ, G_x, G_p
     end
 
 end

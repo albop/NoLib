@@ -130,37 +130,66 @@ sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
 # # Now compute the aggregate equilibrium condition
 
+using NoLib: LinearOperator
 
-
-
-
-function equilibrium(model, x_, μ, y; diff=false)
+function equilibrium(model, x_, μ, y_; diff=false)
     p = model.calibration.p
     s = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
     L(u) = NoLib.label_GArray(model.calibration.x, u)
+    y = NoLib.LVectorLike(model.calibration.y,y_)
+    Ly(u) = NoLib.LVectorLike(model.calibration.y,y_)
+
     x = L(x_)
+
 
     res = sum( μ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
 
     if diff!=true
         return [res]
     else
-        res_x = dx -> sum( μ[i]*(-L(dx)[i].c) for i=1:length(model.grid)) - y.K*p.δ
-        res_μ = dμ -> sum( dμ[i]*(s[i].y-L(x)[i].c) for i=1:length(model.grid)) - y.K*p.δ
-        res_y = dy -> - dy.K*p.δ
+        res_x = LinearOperator{typeof(x_), SVector{1,Float64}}(
+            dx -> SVector(sum( μ[i]*(-L(dx)[i].c) for i=1:length(model.grid)) - y.K*p.δ)
+        )
+        res_μ = LinearOperator{typeof(μ), SVector{1,Float64}}(
+            dμ -> SVector(sum( dμ[i]*(s[i].y-L(x)[i].c) for i=1:length(model.grid)) - y.K*p.δ)
+        )
+        res_y = LinearOperator{SVector{1,Float64},SVector{1,Float64}}(
+            dy -> SVector( -Ly(dy).K*p.δ )
+        )
         return res, res_x, res_μ, res_y
     end
 
 end
 
+using ForwardDiff
 
+function projection(model, y_, z_; diff=false)
+    p = model.calibration.p
+    y = NoLib.LVectorLike(model.calibration.y, y_)
+    z = NoLib.LVectorLike(model.calibration.z, z_)
+
+    r = z.z*y.K^p.α
+    w = z.z*y.K^(1-p.α)
+
+    p = SVector(w, r) # XXX: warning, this is order-sensitive
+
+    if diff==false
+        return p
+    end
+
+    P_y = ForwardDiff.jacobian(u->projection(model, u, z_), y_)
+    P_z = ForwardDiff.jacobian(u->projection(model, y_, u), z_)
+    return p, P_y, P_z
+
+end
 
 
 ## "Steady-state" values
 x0 = sol.solution
 μ0 = NoLib.ergodic_distribution(model, sol.solution)
 p0 = SVector(model.calibration.m[1:2]...)
-y0 = LVector(K=40)
+y0 = SVector(40)
+z0 = SVector(model.calibration.z...)
 
 ## Derivatives of: F
 
@@ -176,20 +205,33 @@ V = J_1 \ V     # GMatrix (GArray{G,SMatrix})
 
 ## Derivatives of: G
 
-μ1, P, G_x, G_p = NoLib.G(model, μ0, x0, p0; diff=true)
+μ1, G_μ, G_x, G_p = NoLib.G(model, μ0, x0, p0; diff=true)
 
 # μ1: GDist ( (GArray{G,Float64}))
-# P: Matrix (  operates on flatten vectors  ) # todo, reconsider type
+# G_μ: LinearOperator GDist->GDist 
 # G_x: Matrix (  operates on flatten vectors  ) # todo, should be operator
 # G_p: Matrix (  operates on flatten vectors  ) # todo, should probably be GMatrix
+
+G_μ*μ0  # == μ1
+G_x*x0 # same dim as - μ0
+G_p*p0 # same dim as - μ0
 
 
 ## Derivatives of A:
 
-# TODO
+a, A_x, A_μ, A_y = equilibrium(model, x0, μ0, y0; diff=true)
 
-a, a_x, a_μ, a_y = equilibrium(model, x0, μ0, y; diff=true)
 
-@time a_x(x0)
-@time a_y(μ0)
-@time a_y(y0)
+import Main.Temp: LinearOperator
+import Main.Temp: *
+
+A_x*x0 # GVector->SVector
+A_μ*μ0 # GDist->SVector
+A_y*y0 # SVector->SVector
+
+## Derivatives of P:
+
+p, P_y, P_z = projection(model, y0, z0; diff=true)
+
+P_y*y0
+P_z*z0
