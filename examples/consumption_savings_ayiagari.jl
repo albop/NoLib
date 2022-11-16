@@ -133,20 +133,20 @@ sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
 
 
-y = LVector(K=40)
 
 function equilibrium(model, x_, μ, y; diff=false)
     p = model.calibration.p
     s = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
-    x = NoLib.label_GArray(model.calibration.x, x_)
+    L(u) = NoLib.label_GArray(model.calibration.x, u)
+    x = L(x_)
 
     res = sum( μ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
 
     if diff!=true
         return [res]
     else
-        res_x = dx -> sum( μ[i]*(-dx[i].c) for i=1:length(model.grid)) - y.K*p.δ
-        res_μ = dμ -> sum( dμ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
+        res_x = dx -> sum( μ[i]*(-L(dx)[i].c) for i=1:length(model.grid)) - y.K*p.δ
+        res_μ = dμ -> sum( dμ[i]*(s[i].y-L(x)[i].c) for i=1:length(model.grid)) - y.K*p.δ
         res_y = dy -> - dy.K*p.δ
         return res, res_x, res_μ, res_y
     end
@@ -160,6 +160,7 @@ end
 x0 = sol.solution
 μ0 = NoLib.ergodic_distribution(model, sol.solution)
 p0 = SVector(model.calibration.m[1:2]...)
+y0 = LVector(K=40)
 
 ## Derivatives of: F
 
@@ -187,4 +188,8 @@ V = J_1 \ V     # GMatrix (GArray{G,SMatrix})
 
 # TODO
 
-equilibrium(model, x0, μ0, y; diff=true)
+a, a_x, a_μ, a_y = equilibrium(model, x0, μ0, y; diff=true)
+
+@time a_x(x0)
+@time a_y(μ0)
+@time a_y(y0)
