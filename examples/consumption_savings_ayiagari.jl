@@ -96,11 +96,8 @@ sol = NoLib.time_iteration(model; verbose=false, improve=false)
 
 
 
-# x0 = sol.solution
 
 # P = NoLib.transition_matrix(model, sol.solution)
-# μ0 = NoLib.ergodic_distribution(model, sol.solution)
-
 
 
 
@@ -143,8 +140,8 @@ function equilibrium(model, x_, μ, y; diff=false)
     s = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
     x = NoLib.label_GArray(model.calibration.x, x_)
 
-    f = u->LVectorLike(merge(model.calibration.m, model.calibration.s),u)
     res = sum( μ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
+
     if diff!=true
         return [res]
     else
@@ -156,13 +153,17 @@ function equilibrium(model, x_, μ, y; diff=false)
 
 end
 
-# equilibrium(model, x0, μ0, y; diff=true)
 
 
+
+## "Steady-state" values
 x0 = sol.solution
+μ0 = NoLib.ergodic_distribution(model, sol.solution)
 p0 = SVector(model.calibration.m[1:2]...)
 
-@time r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
+## Derivatives of: F
+
+r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
 
 # renormalize to get: r, I , T, U, V
 
@@ -170,3 +171,38 @@ r = J_1 \ r
 T = J_1 \ J_2
 U = J_1 \ U
 V = J_1 \ V
+
+
+## Derivatives of: G
+
+ss = [NoLib.enum(model.grid)...][1]
+a = x0[1]
+[NoLib.τ_fit(model, ss, a, p0)...]
+
+
+res = NoLib.G(model, μ0, x0, p0; diff=false)
+
+x__ = NoLib.ravel(x0)
+
+f = u->NoLib.ravel(NoLib.G(model, μ0, NoLib.unravel(x0, x__), p0; diff=false))
+
+using FiniteDiff
+FiniteDiff.finite_difference_jacobian(f, x__)
+
+NoLib.G(model, μ0, x0, p0; diff=false)
+
+using FiniteDiff
+
+
+FiniteDiff.finite_difference_jacobian(
+    u->NoLib.G(model, μ0, x0, p0; diff=false)
+)
+
+# renormalize to get: r, I , T, U, V
+
+r = J_1 \ r
+T = J_1 \ J_2
+U = J_1 \ U
+V = J_1 \ V
+
+equilibrium(model, x0, μ0, y; diff=true)

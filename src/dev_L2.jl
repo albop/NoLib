@@ -35,13 +35,13 @@ function apply_L_2!(dr, L2, dφ)
     (;M_ij, S_ij) = L2
     N,K = size(M_ij)
     for n=1:N
-        t0 = dr.data[n]*0.0
+        t0 = dr[n]*0.0
         for k=1:K
             F_x = M_ij[n,k]
             S = S_ij[n,k]
             t0 += F_x*dφ(S)
         end
-        dr.data[n] = t0
+        dr[n] = t0
     end
 end
 

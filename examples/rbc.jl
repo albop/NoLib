@@ -1,7 +1,7 @@
 using NoLib
 using FiniteDiff
 
-include("rbc_model.jl")
+include("models/rbc.jl")
 
 sol = NoLib.time_iteration(model, verbose=false, improve=false)
 

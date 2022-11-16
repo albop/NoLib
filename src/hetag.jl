@@ -48,14 +48,19 @@ end
     i = ss[1][1]
 
 
-    n_m = length(model.m)
+    n_m = length(model.calibration.m)
 
     ss = cover(p0, ss)
-    (i,_),(m, s) = ss
 
-    
+    (i,_),(s_) = ss # get current state values
 
-    for j in 1:size(model.P, 2)
+    # TODO: replace following block by one nonallocating function
+    k  = length(model.calibration.m)
+    l = length(model.calibration.s)
+    m = SVector((s_[i] for i=1:k)...)
+    s = SVector((s_[i] for i=k+1:(k+l))...)
+
+    for j in 1:size(P, 2)
 
         S = transition(model, m, s, a, Q[j], p)
 
@@ -67,7 +72,7 @@ end
                 (
                     (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
 
-                    (Q[j], model.grid.g2[i_S])
+                    SVector(Q[j]..., model.grid.g2[i_S]...)
                 )
             )
             if linear_index
@@ -86,7 +91,7 @@ end
 function G(model, μ::GDist{T}, x, p0; diff=true) where T
 
     μ1 = GArray(μ.grid, zeros(Float64, length(μ)))
-    for ss in iti(model.grid)
+    for ss in enum(model.grid)
         ss = cover(p0,ss)
         a = x[ss[1]...]
         for (w, (ind, _)) in τ_fit(model, ss, a, p0)

@@ -148,7 +148,7 @@ function ergodic_distribution(model, x::GArray)
     R[end] = 1
     μ = PP'\R
     
-    ergo = GArray(model.grid, μ)
+    ergo = GDist(model.grid, μ)
 
     return ergo
 

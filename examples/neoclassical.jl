@@ -2,7 +2,7 @@
 using NoLib
 
 
-include("neoclassical_model.jl")
+include("models/neoclassical.jl")
 
 J_1, J_2 = NoLib.time_iteration(model, verbose=true, improve=true)
 

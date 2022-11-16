@@ -6,8 +6,9 @@ struct GArray{G,U}
 end
 
 const GVector{G,T} = GArray{G,T}
+const GDist{G} = GArray{G, Vector{Float64}}
 
-# GArray(grid::G, x::T) where G where T = GArray{G,T}(grid, copy(x))
+GDist(g::G, v::Vector{Float64}) where G= GArray{G,Vector{Float64}}(g, v)
 
 
 norm(v::GArray) = maximum(u->maximum(abs, u), v.data)
@@ -29,7 +30,6 @@ setindex!(a::GArray{PGrid{G1, G2, d}, T}, v, i::Int, j::Int) where G1 where G2 w
 
 
 
-GDist{G} = GArray{G, Float64}
 
 eltype(g::GArray{G,T}) where G where T = eltype(T)
 
