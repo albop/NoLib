@@ -38,7 +38,7 @@ function τ(model, ss::Tuple, a::SVector, p0, p1)
 
 end
 
-@resumable function τ_fit(model, ss::Tuple, a::SVector, p0; linear_index=false)
+function τ_test(model, ss::Tuple, a::SVector, p0; linear_index=false)
 
     p = model.calibration.p
     P = model.transition
@@ -82,7 +82,55 @@ end
                 res
                 # res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
             end
+            println(res)
+
+        end
+    end
+end
+
+
+@resumable function τ_fit(model, ss::Tuple, a::SVector, p0; linear_index=false)
+
+    p = model.calibration.p
+    P = model.transition
+    Q = model.grid.g1.points
+
+    n_m = length(model.calibration.m)
+
+    ss = cover(p0, ss)
+
+    (i,_),(s_) = ss # get current state values
+
+    # TODO: replace following block by one nonallocating function
+    k  = length(model.calibration.m)
+    l = length(model.calibration.s)
+    # XXX bug in resumable function: replacing __i by dummy var i fails.
+    m = SVector((s_[__i] for __i=1:k)...)
+    s = SVector((s_[__i] for __i=k+1:(k+l))...)
+
+    for j in 1:size(P, 2)
+        S = transition(model, m, s, a, Q[j], p)
+
+        for (w, i_S) in trembling__hand(model.grid.g2, S)
+
+            res = (
+                P[i,j]*w,
+
+                (
+                    (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
+
+                    SVector(Q[j]..., model.grid.g2[i_S]...)
+                )
+            )
+            if linear_index
+                res
+                # res::Tuple{Float64, Tuple{Int64, Tuple{SVector{1},SVector{1}}}}
+            else
+                res
+                # res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
+            end
             @yield res
+
         end
     end
 end

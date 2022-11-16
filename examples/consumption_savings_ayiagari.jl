@@ -46,13 +46,13 @@ model = let
 
     p = SLVector(;β, γ, σ, ρ, cbar, α, δ)
 
-    mc = rouwenhorst(9,ρ,σ)
+    mc = rouwenhorst(3,ρ,σ)
     
     P = mc.p
     ## decide whether this should be matrix or smatrix
     Q = [SVector(w,r,e) for e in mc.state_values] 
 
-    N = 100
+    N = 20
 
     grid = SSGrid(Q) × CGrid(((0.01,4.0,N),))
     
@@ -167,42 +167,24 @@ r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
 
 # renormalize to get: r, I , T, U, V
 
-r = J_1 \ r
-T = J_1 \ J_2
-U = J_1 \ U
-V = J_1 \ V
+r = J_1 \ r     # GVector  (GArray{G,SVector})
+T = J_1 \ J_2   # Operator: GVector->GVector
+U = J_1 \ U     # GMatrix (GArray{G,SMatrix})
+V = J_1 \ V     # GMatrix (GArray{G,SMatrix})
 
 
 ## Derivatives of: G
 
-ss = [NoLib.enum(model.grid)...][1]
-a = x0[1]
-[NoLib.τ_fit(model, ss, a, p0)...]
+μ1, P, G_x, G_p = NoLib.G(model, μ0, x0, p0; diff=true)
+
+# μ1: GDist ( (GArray{G,Float64}))
+# P: Matrix (  operates on flatten vectors  ) # todo, reconsider type
+# G_x: Matrix (  operates on flatten vectors  ) # todo, should be operator
+# G_p: Matrix (  operates on flatten vectors  ) # todo, should probably be GMatrix
 
 
-res = NoLib.G(model, μ0, x0, p0; diff=false)
+## Derivatives of A:
 
-x__ = NoLib.ravel(x0)
-
-f = u->NoLib.ravel(NoLib.G(model, μ0, NoLib.unravel(x0, x__), p0; diff=false))
-
-using FiniteDiff
-FiniteDiff.finite_difference_jacobian(f, x__)
-
-NoLib.G(model, μ0, x0, p0; diff=false)
-
-using FiniteDiff
-
-
-FiniteDiff.finite_difference_jacobian(
-    u->NoLib.G(model, μ0, x0, p0; diff=false)
-)
-
-# renormalize to get: r, I , T, U, V
-
-r = J_1 \ r
-T = J_1 \ J_2
-U = J_1 \ U
-V = J_1 \ V
+# TODO
 
 equilibrium(model, x0, μ0, y; diff=true)
