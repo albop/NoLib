@@ -38,7 +38,7 @@ model = let
 	Q = @SMatrix [-0.01; 0.01]
 	
 	exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
-    endo = CGrid( ((0.5*k, 1.5*k, 10),) )
+    endo = CGrid( ((0.5*k, 1.5*k, 100),) )
     grid = exo × endo
 	
 	DModel(

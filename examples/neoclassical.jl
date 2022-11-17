@@ -4,7 +4,7 @@ using NoLib
 
 include("models/neoclassical.jl")
 
-J_1, J_2 = NoLib.time_iteration(model, verbose=true, improve=true)
+NoLib.time_iteration(model, verbose=true, improve=false)
 
 using BlockDiagonals
 

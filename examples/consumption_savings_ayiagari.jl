@@ -133,6 +133,7 @@ sol = NoLib.time_iteration(model; verbose=false, improve=false)
 using NoLib: LinearOperator
 
 function equilibrium(model, x_, μ, y_; diff=false)
+
     p = model.calibration.p
     s = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
     L(u) = NoLib.label_GArray(model.calibration.x, u)
@@ -148,13 +149,13 @@ function equilibrium(model, x_, μ, y_; diff=false)
         return [res]
     else
         res_x = LinearOperator{typeof(x_), SVector{1,Float64}}(
-            dx -> SVector(sum( μ[i]*(-L(dx)[i].c) for i=1:length(model.grid)) - y.K*p.δ)
+            dx -> SVector(sum( μ[i]*(-L(dx)[i].c) for i=1:length(model.grid)))
         )
         res_μ = LinearOperator{typeof(μ), SVector{1,Float64}}(
-            dμ -> SVector(sum( dμ[i]*(s[i].y-L(x)[i].c) for i=1:length(model.grid)) - y.K*p.δ)
+            dμ -> SVector(sum( dμ[i]*(s[i].y-L(x)[i].c) for i=1:length(model.grid)) )
         )
         res_y = LinearOperator{SVector{1,Float64},SVector{1,Float64}}(
-            dy -> SVector( -Ly(dy).K*p.δ )
+            dy -> SVector( -p.δ )
         )
         return res, res_x, res_μ, res_y
     end
@@ -171,7 +172,7 @@ function projection(model, y_, z_; diff=false)
     r = z.z*y.K^p.α
     w = z.z*y.K^(1-p.α)
 
-    p = SVector(w, r) # XXX: warning, this is order-sensitive
+    pp = SVector(w, r) # XXX: warning, this is order-sensitive
 
     if diff==false
         return p
@@ -179,21 +180,21 @@ function projection(model, y_, z_; diff=false)
 
     P_y = ForwardDiff.jacobian(u->projection(model, u, z_), y_)
     P_z = ForwardDiff.jacobian(u->projection(model, y_, u), z_)
-    return p, P_y, P_z
+    return pp, P_y, P_z
 
 end
 
 
 ## "Steady-state" values
-x0 = sol.solution
-μ0 = NoLib.ergodic_distribution(model, sol.solution)
+x0 = sol.solution   # GVector
+μ0 = NoLib.ergodic_distribution(model, sol.solution)   # GDist
 p0 = SVector(model.calibration.m[1:2]...)
-y0 = SVector(40)
+y0 = SVector(40.0)
 z0 = SVector(model.calibration.z...)
 
 ## Derivatives of: F
 
-r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
+@time r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
 
 # renormalize to get: r, I , T, U, V
 
