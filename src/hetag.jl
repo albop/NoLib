@@ -181,7 +181,7 @@ function G(model, μ::GDist{T}, x, p0; diff=true) where T
         )
         
         # the returned functions are inefficient by dimensionally consistent
-        return μ1, G_μ, G_x, G_p
+        return (;_0=μ1, _μ=G_μ, _x=G_x, _B=G_p)
     end
 
 end
@@ -241,7 +241,7 @@ function F(model, controls::GArray, φ::GArray, p0, p1; diff=false)
     r_3 = GArray(model.grid, reinterpret(elt, rr_p0[:]))
     r_4 = GArray(model.grid, reinterpret(elt, rr_p1[:]))
 
-    return r, r_1, r_2, r_3, r_4
+    return (; _0=r, _J1=r_1, _J2=r_2, _U=r_3, _V=r_4)
 
 end
 

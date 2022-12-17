@@ -157,7 +157,8 @@ function equilibrium(model, x_, μ, y_; diff=false)
         res_y = LinearOperator{SVector{1,Float64},SVector{1,Float64}}(
             dy -> SVector( -p.δ )
         )
-        return res, res_x, res_μ, res_y
+
+        return (;_0=res, _x=res_x, _μ=res_μ, _y=res_y)
     end
 
 end
@@ -169,18 +170,19 @@ function projection(model, y_, z_; diff=false)
     y = NoLib.LVectorLike(model.calibration.y, y_)
     z = NoLib.LVectorLike(model.calibration.z, z_)
 
-    r = z.z*y.K^p.α
-    w = z.z*y.K^(1-p.α)
+    r = exp(z.z)*y.K^p.α
+    w = exp(z.z)*y.K^(1-p.α)
 
     pp = SVector(w, r) # XXX: warning, this is order-sensitive
 
     if diff==false
-        return p
+        return pp
     end
 
     P_y = ForwardDiff.jacobian(u->projection(model, u, z_), y_)
     P_z = ForwardDiff.jacobian(u->projection(model, y_, u), z_)
-    return pp, P_y, P_z
+
+    return (; _0=pp, _y=P_y, _z=P_z)
 
 end
 
@@ -194,7 +196,7 @@ z0 = SVector(model.calibration.z...)
 
 ## Derivatives of: F
 
-@time r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
+@time (r, J_1, J_2, U, V) = F = NoLib.F(model, x0, x0, p0, p0; diff=true);
 
 # renormalize to get: r, I , T, U, V
 
@@ -206,33 +208,44 @@ V = J_1 \ V     # GMatrix (GArray{G,SMatrix})
 
 ## Derivatives of: G
 
-μ1, G_μ, G_x, G_p = NoLib.G(model, μ0, x0, p0; diff=true)
+(μ1, G_μ, G_x, G_p) = G = NoLib.G(model, μ0, x0, p0; diff=true)
+
 
 # μ1: GDist ( (GArray{G,Float64}))
 # G_μ: LinearOperator GDist->GDist 
 # G_x: Matrix (  operates on flatten vectors  ) # todo, should be operator
 # G_p: Matrix (  operates on flatten vectors  ) # todo, should probably be GMatrix
 
-G_μ*μ0  # == μ1
-G_x*x0 # same dim as - μ0
-G_p*p0 # same dim as - μ0
+G._μ*μ0  # == μ1
+G._x*x0 # same dim as - μ0
+G._B*p0 # same dim as - μ0
 
 
 ## Derivatives of A:
 
-a, A_x, A_μ, A_y = equilibrium(model, x0, μ0, y0; diff=true)
+(a, A_x, A_μ, A_y) = A =  equilibrium(model, x0, μ0, y0; diff=true)
 
 
-import Main.Temp: LinearOperator
-import Main.Temp: *
+# import Main.Temp: LinearOperator
+# import Main.Temp: *
 
-A_x*x0 # GVector->SVector
-A_μ*μ0 # GDist->SVector
-A_y*y0 # SVector->SVector
+A._x*x0 # GVector->SVector
+A._μ*μ0 # GDist->SVector
+A._y*y0 # SVector->SVector
 
 ## Derivatives of P:
 
-p, P_y, P_z = projection(model, y0, z0; diff=true)
+(p, P_y, P_z) = P = projection(model, y0, z0; diff=true)
 
-P_y*y0
-P_z*z0
+P._y*y0
+P._z*z0
+
+
+# TEST
+K = 100
+# dy_vals = [SVector(y0*0.0001) for k=1:K]
+# @time NoLib.J(F, G, A, P, dy_vals);
+
+@time Rk, Tk, Sk = NoLib.J_forward(A, G, T, U, V, P, K);
+@time Wk, Xk = NoLib.J_backward(A, G, P, Rk, K);
+@time J_x, J_μ1, J_μ2 = NoLib.jacobian_matrixes(Tk, Wk, Xk, K);

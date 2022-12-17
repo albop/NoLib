@@ -22,6 +22,7 @@ module NoLib
     include("time_iteration.jl")
     include("funs.jl")
     include("hetag.jl")
+    include("jac.jl")
 
 end # module
 
