@@ -62,7 +62,7 @@ function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1
     res
 end
 
-(xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, j::Int64) where G1 where G2 where U where d where T  = xa[i,j]
+(xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, j::Int64) where G1 where G2 where d where T  = xa[i,j]
 # (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 where G2 where U where d where T = xa(S[1][1],S[2][2])
 (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64, Int64}, U}) where G1 where G2 where U where d where T = xa[S[1]...]
 
@@ -87,7 +87,9 @@ import Base: *, \, +, -, /
 /(A::GArray{G,T}, B::GArray{G,U}) where G where T  where U = GArray(A.grid, A.data./B.data)
 +(A::GArray{G,T}, B::GArray{G,U}) where G where T  where U = GArray(A.grid, A.data.+B.data)
 -(A::GArray{G,T}, B::GArray{G,U}) where G where T  where U = GArray(A.grid, A.data.-B.data)
-*(A::GArray{G,T}, x::Number) where G where T  where U = GArray(A.grid, A.data .* x)
+
+*(A::GArray{G,T}, x::Number) where G where T  = GArray(A.grid, A.data .* x)
+*(x::Number, A::GArray{G,T}) where G where T = GArray(A.grid, x .* A.data)
 
 *(A::GArray{G,T}, B::AbstractArray{Float64}) where G where T <:SMatrix{p, q, Float64, n}  where p where q where n = 
     ravel(
@@ -96,6 +98,7 @@ import Base: *, \, +, -, /
             A.data .* reinterpret(SVector{q, Float64}, B)
         )
     )
+
 
 import Base: convert
 

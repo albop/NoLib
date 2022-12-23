@@ -83,7 +83,8 @@ function time_iteration_1(model;
     K=10,
     tol_ε=1e-8,
     tol_η=1e-6,
-    verbose=false
+    verbose=false,
+    exo=e0
 )
 
     N = length(model.grid)
@@ -96,7 +97,7 @@ function time_iteration_1(model;
 
     for t=1:T
 
-        r0 = F(model, x0, x0)
+        r0 = F(model, x0, x0, e0, e0)
         ε = norm(r0)
 
         if ε<tol_ε
@@ -197,17 +198,15 @@ function time_iteration(model;
     T=500,
     K=10,
     tol_ε=1e-8,
-    tol_η=1e-6,
+    tol_η=1e-8,
     verbose=false,
     improve=true,
     x0=nothing
 )
 
-    version_check()
-
     N = length(model.grid)
     if x0===nothing
-        x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
+        x0 = initial_guess(model)
     else
         x0 = deepcopy(x0)
     end
@@ -237,9 +236,8 @@ function time_iteration(model;
         sol = nlsolve(fun, dfun, u0)
         u1 = sol.zero
 
+        ε = maximum(abs, fun(u1))
         η = maximum(u->abs(u[1]-u[2]), zip(u0,u1))
-        
-        verbose ? println("Iteration $t: $η") : nothing
         
         x1 = unravel(x0, u1)
 
@@ -256,12 +254,16 @@ function time_iteration(model;
 
             J_1 = NoLib.dF_1(model, x1, x0)
             J_2 =  NoLib.dF_2(model, x1, x0)
+            J_2.M_ij[:] *= -1.0
             Tp = J_1 \ J_2
             r = x1 - Tp * x0
             x0 = invert(r, Tp; K=1000)
 
         end
+        
+        ε = maximum(abs, ravel(F(model, x0, x0)))
 
+        verbose ? println("Iteration $t : $η : $ε") : nothing
 
         if η<tol_η
             return (;solution=x0, message="Convergence", n_iterations=t)

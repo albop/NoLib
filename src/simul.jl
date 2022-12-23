@@ -9,10 +9,8 @@ function τ(model::DModel, ss::T, a::SVector) where T<:Tuple
     (i,_),(s_) = ss # get current state values
 
     # TODO: replace following block by one nonallocating function
-    k  = length(model.calibration.m)
-    l = length(model.calibration.s)
-    m = SVector((s_[i] for i=1:k)...)
-    s = SVector((s_[i] for i=k+1:(k+l))...)
+
+    m,s = split_states(model, s_)
 
     Q = model.grid.g1.points
 
@@ -62,22 +60,26 @@ using ResumableFunctions
 @resumable function τ_fit(model, ss::Tuple, a::SVector; linear_index=false)
 
     p = model.calibration.p
+    P = model.transition
+    Q = model.grid.g1.points
 
     i = ss[1][1]
 
-    Q = model.grid.g1.points
-
     n_m = length(model.calibration.m)
 
-    # (m, s) = (ss[2][1:n_m], ss[2][n_m+1:end])
-    # (m, s) = (ss[2][1], ss[2][2])
-    (i,_),(m, s) = ss
+    (i,_),(s_) = ss
 
-    P = model.transition
+    # TODO: replace following block by one nonallocating function
+    k  = length(model.calibration.m)
+    l = length(model.calibration.s)
+
+    m = SVector((s_[__i] for __i=1:k)...)
+    s = SVector((s_[__i] for __i=k+1:(k+l))...)
 
     for j in 1:size(P, 2)
 
-        S = transition(model, m, s, a, Q[j], p)
+        M = Q[j]
+        S = transition(model, m, s, a, M, p)
 
         for (w, i_S) in trembling__hand(model.grid.g2, S)
 
@@ -87,7 +89,7 @@ using ResumableFunctions
                 (
                     (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
 
-                    (Q[j], model.grid.g2[i_S])
+                    SVector(M..., model.grid.g2[i_S]...)
                 )
             )
             if linear_index
@@ -123,7 +125,7 @@ function transition_matrix(model, x)
     N = length(x)
     P = zeros(N,N)
 
-    for (ss,a) in zip(iti(model.grid),x)
+    for (ss,a) in zip(enum(model.grid),x)
         ind_i = ss[1]
         i = to__linear_index(model.grid, ind_i)
         for (w, (ind_j, _)) in τ_fit(model, ss, a)

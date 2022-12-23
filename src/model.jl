@@ -13,6 +13,14 @@ struct DModel{A,B,C}
     transition::C
 end
 
+function recalibrate()
+end
+
+# TODO
+import Base.show
+Base.show(io::IO, dmodel::DModel) = print(io, "DModel(#$(hash(typeof(dmodel))))")
+
+
 exo_transition(model::DModel{A,B,C}) where A where B where C = model.transition
 
 import Base: merge
@@ -53,17 +61,57 @@ function arbitrage(model, m, s, x, M, S, X, p)
 end
 
 function arbitrage(model, s, x, S, X)
-
-    # @show s
-    # @show x
-    # @show S
-    # @show X
-    # throw(" Error")
     p = model.calibration.p
     n_k = length(model.calibration.m)
     arbitrage(model, s[2][1:n_k], s[2][n_k+1:end], x, S[2][1:n_k], S[2][n_k+1:end], X, p)
 end
 
-function version_check()
-    @warn "No license code found. Results might  be inacurate."
+
+
+function split_states(model, s_)
+
+    n_m = length(model.calibration.m)  # this does not keep the original type
+    n_s = length(model.calibration.s)
+
+    m = SVector((s_[i] for i=1:n_m)...)
+    s = SVector((s_[i] for i=n_m+1:(n_m+n_s))...)
+
+    return (;m,s)
+
+end
+
+## default implementation
+function initial_guess(model, m::SLArray, s::SLArray, p)
+    model.calibration.x
+end
+
+function initial_guess(model, m::SVector, s::SVector, p)
+
+    m = LVectorLike(model.calibration.m, m)  # this does not keep the original type
+    s = LVectorLike(model.calibration.s, s)
+    
+    x = initial_guess(model, m, s, p)
+    
+    return SVector(x...)
+    
+end
+
+function initial_guess(model, s::SVector)
+    
+    p = model.calibration.p
+
+    m_, s_ = split_states(model, s)
+
+    x = initial_guess(model, m_, s_, p)
+
+    return SVector(x...)
+
+end
+
+
+function initial_guess(model)
+    GVector(
+        model.grid,
+        [initial_guess(model, s) for s in model.grid]
+    )
 end

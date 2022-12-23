@@ -37,7 +37,7 @@ model = let
     e = 0
     cbar = c
 
-    N = 200
+    N = 500
 
 
     m = SLVector(;w,r,e)
@@ -56,7 +56,7 @@ model = let
     Q = SVector( (SVector(w,r,e) for e in mc.state_values)... )
 
 
-    grid = SSGrid(Q) × CGrid(((0.01,80.0,N),))
+    grid = SSGrid(Q) × CGrid(((0.01,100.0,N),))
     
     name = Val(:ayiagari)
 
@@ -101,7 +101,7 @@ function recalibrate(mod::typeof(model); K=mod.calibration.y.K, N=mod.calibratio
     ## decide whether this should be matrix or smatrix
     Q = SVector( (SVector(w,r,e) for e in mc.state_values)... )
 
-    grid = SSGrid(Q) × CGrid(((0.01,80.0,N_),))
+    grid = SSGrid(Q) × CGrid(((0.01,100.0,N_),))
     
     nmodel = DModel(
         (;m, s, x, y, z, p),
@@ -129,6 +129,22 @@ function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SL
     eq2 = x.λ ⟂ s.y-x.c
     return SLVector( (;eq, eq2) )
 end
+
+
+function equilibrium(model, s::SLArray, x::SLArray, y::SLArray, p)
+    res = s.y - x.c - y.K*p.δ
+    SLVector((;res))
+end
+
+function projection(model, y::SLArray, z::SLArray, p)
+
+    r = p.α*exp(z.z)*(1/y.K)^(1-p.α) - p.δ
+    w = (1-p.α)*exp(z.z)*y.K^(p.α)
+
+    return SLVector((;w, r)) # XXX: warning, this is order-sensitive
+    
+end
+
 
 function initial_guess(model, m::SLArray, s::SLArray, p)
     c = s.y*0.8

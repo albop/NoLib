@@ -2,11 +2,26 @@ using FiniteDiff
 
 
 struct LinearOperator{From,To}
+    from::From
+    to::To
     fun
 end
 
 import Base: *
 *(L::LinearOperator, x) = L.fun(x)
+
+function convert(::Type{Matrix}, L::LinearOperator)
+    convert(Matrix,
+        convert(LinearMap, L)
+    )
+end
+
+function convert(::Type{LinearMap}, L::LinearOperator)
+    p = length(ravel(L.to))
+    q = length(ravel(L.from))
+    LinearMap( u-> ravel( L* unravel(L.from, u)), p, q)
+
+end
 
 
 function τ(model, ss::Tuple, a::SVector, p0, p1)
@@ -47,77 +62,79 @@ function τ(model, ss::Tuple, a::SVector, p0, p1)
 
 end
 
-function τ_test(model, ss::Tuple, a::SVector, p0; linear_index=false)
+# function τ_test(model, ss::Tuple, a::SVector, p0; linear_index=false)
+
+#     p = model.calibration.p
+#     P = model.transition
+#     Q = model.grid.g1.points
+
+
+#     i = ss[1][1]
+
+
+#     n_m = length(model.calibration.m)
+
+#     ss = cover(p0, ss)
+
+#     (i,_),(s_) = ss # get current state values
+
+#     # TODO: replace following block by one nonallocating function
+#     k  = length(model.calibration.m)
+#     l = length(model.calibration.s)
+#     m = SVector((s_[i] for i=1:k)...)
+#     s = SVector((s_[i] for i=k+1:(k+l))...)
+
+#     for j in 1:size(P, 2)
+
+#         S = transition(model, m, s, a, Q[j], p)
+
+#         for (w, i_S) in trembling__hand(model.grid.g2, S)
+
+#             res = (
+#                 P[i,j]*w,
+
+#                 (
+#                     (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
+
+#                     SVector(Q[j]..., model.grid.g2[i_S]...)
+#                 )
+#             )
+#             if linear_index
+#                 res
+#                 # res::Tuple{Float64, Tuple{Int64, Tuple{SVector{1},SVector{1}}}}
+#             else
+#                 res
+#                 # res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
+#             end
+
+#         end
+#     end
+# end
+
+
+ @resumable function τ_fit(model, ss::Tuple, a::SVector, p0, p1; linear_index=false)
 
     p = model.calibration.p
     P = model.transition
     Q = model.grid.g1.points
 
-
-    i = ss[1][1]
-
-
     n_m = length(model.calibration.m)
-
-    ss = cover(p0, ss)
 
     (i,_),(s_) = ss # get current state values
 
     # TODO: replace following block by one nonallocating function
     k  = length(model.calibration.m)
     l = length(model.calibration.s)
-    m = SVector((s_[i] for i=1:k)...)
-    s = SVector((s_[i] for i=k+1:(k+l))...)
 
-    for j in 1:size(P, 2)
+    s_ = cover(p0, s_)
 
-        S = transition(model, m, s, a, Q[j], p)
-
-        for (w, i_S) in trembling__hand(model.grid.g2, S)
-
-            res = (
-                P[i,j]*w,
-
-                (
-                    (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
-
-                    SVector(Q[j]..., model.grid.g2[i_S]...)
-                )
-            )
-            if linear_index
-                res
-                # res::Tuple{Float64, Tuple{Int64, Tuple{SVector{1},SVector{1}}}}
-            else
-                res
-                # res::Tuple{Float64, Tuple{Tuple{Int64, Int64}, Tuple{SVector{1},SVector{1}}}}
-            end
-
-        end
-    end
-end
-
-
-@resumable function τ_fit(model, ss::Tuple, a::SVector, p0; linear_index=false)
-
-    p = model.calibration.p
-    P = model.transition
-    Q = model.grid.g1.points
-
-    n_m = length(model.calibration.m)
-
-    ss = cover(p0, ss)
-
-    (i,_),(s_) = ss # get current state values
-
-    # TODO: replace following block by one nonallocating function
-    k  = length(model.calibration.m)
-    l = length(model.calibration.s)
-    # XXX bug in resumable function: replacing __i by dummy var i fails.
     m = SVector((s_[__i] for __i=1:k)...)
     s = SVector((s_[__i] for __i=k+1:(k+l))...)
 
     for j in 1:size(P, 2)
-        S = transition(model, m, s, a, Q[j], p)
+        
+        M = cover(p1, Q[j])
+        S = transition(model, m, s, a, M , p)
 
         for (w, i_S) in trembling__hand(model.grid.g2, S)
 
@@ -127,7 +144,7 @@ end
                 (
                     (linear_index ? to__linear_index(model.grid, (j,i_S)) : (j,i_S)),
 
-                    SVector(Q[j]..., model.grid.g2[i_S]...)
+                    SVector(M..., model.grid.g2[i_S]...)
                 )
             )
             if linear_index
@@ -143,14 +160,53 @@ end
     end
 end
 
-function G(model, μ::GDist{T}, x, p0; diff=true) where T
+
+function transition_matrix(model, x, p0)
+
+    N = length(x)
+    P = zeros(N,N)
+
+    p1 = p0 # irrelevant here
+
+    for (ss,a) in zip(enum(model.grid),x)
+        ind_i = ss[1]
+        i = to__linear_index(model.grid, ind_i)
+        for (w, (ind_j, _)) in τ_fit(model, ss, a, p0, p1)
+            j = to__linear_index(model.grid, ind_j)
+            P[i,j] = w
+        end
+    end
+
+    P
+
+end
+
+
+# TODO: this is a linear operation GArray->GArray, stored as a matrix.
+struct LinnMatt{G}
+    grid::G
+    μ 
+    P::Matrix{Float64}
+end
+
+convert(::Type{Matrix}, a::LinnMatt) = a.P
+
+*(L::LinnMatt, v::GVector) = unravel(L.μ, L.P*ravel(v))
+*(L::LinnMatt, v::SVector) = unravel(L.μ, L.P*v)
+
+
+*(L::GVector, v::SVector) = GVector(L.grid, [e*v for e in L.data])
+*(L::GVector, v::SMatrix) = GVector(L.grid, [e*v for e in L.data])
+
+
+function G(model, μ::GDist{T}, x, p0; diff=false) where T
 
     μ1 = GArray(μ.grid, zeros(Float64, length(μ)))
     for ss in enum(model.grid)
         ss = cover(p0,ss)
         a = x[ss[1]...]
         mass = μ[ss[1]...]
-        for (w, (ind, _)) in τ_fit(model, ss, a, p0)
+        for (w, (ind, _)) in τ_fit(model, ss, a, p0, p0)
             μ1[ind...] += w*mass
         end
     end
@@ -162,25 +218,39 @@ function G(model, μ::GDist{T}, x, p0; diff=true) where T
         t_μ = typeof(μ)
         # satisfying but apparently slower than P*μ
 
-        G_μ = LinearOperator{t_μ,t_μ}(
-            dμ->G(model, dμ, x, p0; diff=false)
-        )
-        mat_x = FiniteDiff.finite_difference_jacobian(
-            u->ravel(G(model, μ, unravel(x,u), p0; diff=false)),
-            ravel(x)
-        )
-        G_x = LinearOperator{typeof(x),t_μ}(
-            u->unravel(μ, mat_x*ravel(u))
-        )
+        # G_μ = LinearOperator{t_μ,t_μ}(
+        #     dμ->G(model, dμ, x, p0; diff=false)
+        # )
+        P = transition_matrix(model, x, p0)
+        G_μ = LinnMatt(model.grid, μ, copy(P'))
+
+        # G_μ = LinearOperator{typeof(x),t_μ}(
+        #     u->unravel(μ, P*ravel(u))
+        # )
+        
         mat_p = FiniteDiff.finite_difference_jacobian(
             u->ravel(G(model, μ, x, u; diff=false)),
             p0
         )
-        G_p = LinearOperator{typeof(p0),t_μ}(
-            u->unravel(μ, mat_p*u)
+        n_p = length(p0)
+        G_p = LinnMatt(model.grid, μ, mat_p)
+        # G_p = GVector(
+        #     model.grid, #should be distribution grid
+        #     reinterpret( SMatrix{1, n_p, Float64, n_p} ,(copy(mat_p'))[:])
+        # )
+
+        ε = 1e-6
+        G_x = LinearOperator{typeof(x), t_μ}(
+            x,
+            μ,
+            u -> begin 
+                # no = maximum(abs, u)
+                no = norm(u)
+                (G(model, μ, x+(ε/no)*u, p0; diff=false) - G(model, μ, x, p0; diff=false))*(no/ε)
+            end
         )
         
-        # the returned functions are inefficient by dimensionally consistent
+        # the returned functions are inefficient but dimensionally consistent
         return μ1, G_μ, G_x, G_p
     end
 
@@ -288,7 +358,7 @@ function dF_2(model, x::GArray, φ::GArray, p0, p1 )
     for (s,x) in zip(enum(model.grid), x)
         l = []
         for (w, S) in τ(model, cover(p0, s), x)
-            el = -w*ForwardDiff.jacobian(u->arbitrage(model,cover(p0,s),x,cover(p1,S),u), φ(S))
+            el = w*ForwardDiff.jacobian(u->arbitrage(model,cover(p0,s),x,cover(p1,S),u), φ(S))
             push!(l, (el, S))
         end
         push!(res, l)
@@ -305,4 +375,87 @@ function dF_2(model, x::GArray, φ::GArray, p0, p1 )
         end
     end
     return LF(model.grid, M_ij, S_ij)
+end
+
+
+function projection(model, y::SVector, z::SVector; diff=false)
+
+    y_ = NoLib.LVectorLike(model.calibration.y, y)
+    z_ = NoLib.LVectorLike(model.calibration.z, z)
+    
+    pp = SVector(projection(model, y_, z_)...)
+
+    if diff==false
+        return pp
+    else
+
+        P_y = ForwardDiff.jacobian(u->projection(model, u, z; diff=false), y)
+        P_z = ForwardDiff.jacobian(u->projection(model, y, u; diff=false), z)
+
+        return pp, P_y, P_z
+    end
+
+end
+
+
+function projection(model, y::SLArray, z::SLArray)
+    p = model.calibration.p
+    projection(model, y, z, p)
+end
+
+function equilibrium(model, s::SLArray, x::SLArray, y::SLArray)
+    p = model.calibration.p
+    equilibrium(model, s, x, y, p)
+end
+
+
+function equilibrium(model, s::SVector, x::SVector, y::SVector)
+    s_ = NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),s)
+    x_ = NoLib.LVectorLike(model.calibration.x,x)
+    y_ = NoLib.LVectorLike(model.calibration.y,y)
+    equilibrium(model, s_, x_, y_)
+end
+
+struct ALinOp{G, T}
+    v::GVector{G, T}
+end
+*(a::ALinOp, v::GVector) = sum(a.v*v)
+# *(a::ALinOp, v::SVector) = sum(e*v for e in a.v.data)
+
+convert(::Type{Matrix}, a::ALinOp) = cat(a.v.data...; dims=2)
+
+function equilibrium(model, μ::NoLib.GVector, x, y; diff=false)
+    res = sum(  μ[i]*equilibrium(model, model.grid[i], x[i], y) for i=1:length(model.grid))
+    if !diff
+        return res
+    else
+        r_μ = ALinOp(
+            GVector(
+                model.grid,
+                [equilibrium(model,model.grid[i], x[i], y) for i=1:length(model.grid)]
+            )
+        )
+        # res_μ = LinearOperator{typeof(μ), SVector{1,Float64}}(
+        #     dμ ->  sum(  dμ[i]*equilibrium(model,model.grid[i], x[i], y) for i=1:length(model.grid))
+        # )
+
+        r_x = ALinOp(
+            GVector(
+                model.grid,
+                [μ[i]*ForwardDiff.jacobian(u->equilibrium(model,model.grid[i], u, y), x[i]) for i=1:length(model.grid)]
+            )
+        )
+        # res_x = LinearOperator{typeof(x), SVector{length(y),Float64}}(
+        #     dx -> sum(  μ[i]*ForwardDiff.jacobian(u->equilibrium(model,model.grid[i], u, y), x[i])*dx[i] for i=1:length(model.grid))
+        # )
+        r_y = sum(
+            μ[i]*ForwardDiff.jacobian(u->equilibrium(model,model.grid[i], x[i], u), y) for i=1:length(model.grid)
+        )
+        # res_y = LinearOperator{SVector{1,Float64},SVector{1,Float64}}(
+        #     dy -> sum(  μ[i]*ForwardDiff.jacobian(u->equilibrium(model,model.grid[i], x[i], u), y)*dy for i=1:length(model.grid))
+        # )
+        # return res, (r_μ,res_μ), (r_x,res_x), (r_y,res_y)
+        return res, r_μ, r_x, r_y
+    end
+
 end

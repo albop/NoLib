@@ -1,238 +1,70 @@
-
 using NoLib
+using Plots
 
-using StaticArrays
-using LabelledArrays
-using NoLib: SSGrid, CGrid, PGrid, GArray, DModel, LVectorLike
-import NoLib: transition, arbitrage
-import NoLib: ×, ⟂
+import NoLib: transition, arbitrage, recalibrate, initial_guess, projection, equilibrium
 
-# using ForwardDiff
-# using FiniteDiff
+include("models/consumption_savings_ayiagari.jl")
 
-using QuantEcon: rouwenhorst
+# check we can solve the model with default calibration
 
-model = let 
-
-    β = 0.96
-    γ = 4.0
-    σ = 0.1
-    ρ = 0.0
-    # r = 1.025
-    # y = 1.0 # available income
-    
-    K = 20.0
-    α = 0.36
-    A = 1
-    δ = 0.025
-    r = 1+α*(1/K)^(1-α) - δ
-    w = (1-α)*K^α
-
-    y = w
-
-    c = 0.9*y
-
-    λ = 0
-
-    e = 0
-    cbar = c
-
-
-    m = SLVector(;w,r,e)
-    s = SLVector(;y)
-    x = SLVector(;c, λ)
-    y = SLVector(;K)
-    z = SLVector(;z=0.0)
-
-    p = SLVector(;β, γ, σ, ρ, cbar, α, δ)
-
-    mc = rouwenhorst(3,ρ,σ)
-    
-    P = mc.p
-    ## decide whether this should be matrix or smatrix
-    Q = [SVector(w,r,e) for e in mc.state_values] 
-
-    N = 20
-
-    grid = SSGrid(Q) × CGrid(((0.01,4.0,N),))
-    
-    name = Val(:ayiagari)
-
-    DModel(
-        (;m, s, x, y, z, p),
-        grid,
-        P
-    )
-
-end
-
-
-function transition(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SLArray, p)
-    y = exp(M.e)*M.w + (s.y-x.c)*M.r
-    return SLVector( (;y) )
-end
-
-
-function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SLArray, S::SLArray, X::SLArray, p)
-    eq = 1 - p.β*( X.c/x.c )^(-p.γ)*M.r - x.λ
-    # @warn "The euler equation is satisfied only if c<w. If c=w, it can be strictly positive."
-    eq2 = x.λ ⟂ s.y-x.c
-    return SLVector( (;eq, eq2) )
-end
-
-
-sol = NoLib.time_iteration(model; verbose=false, improve=false)
-
-
-# ## Plot the decision rule
-# using Plots
-# ga = sol.solution
-# w,r,e = model.calibration.m
-# cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
-# cvec = [ga(2,SVector(y))[1] for y in range(0.1, 4.0; length=1000)]
-# λvec = [ga(2,SVector(y))[2] for y in range(0.1, 4.0; length=1000)]
-# plot(cvec)
-# plot!(λvec)
+@time sol = NoLib.time_iteration(model; verbose=true, improve=true, T=20)
+x0 = sol.solution
+μ0 = NoLib.ergodic_distribution(model, x0)
 
 
 
+svec = [e[1] for e in model.grid[1,:]]
 
-# P = NoLib.transition_matrix(model, sol.solution)
+pl1 = plot(svec, [e[1] for e in x0[1,:]])
+plot!(svec, [e[1] for e in x0[2,:]])
+plot!(svec, [e[1] for e in x0[3,:]])
 
+pl2 = plot(svec, [e[1] for e in μ0[1,:]])
+plot!(svec, [e[1] for e in μ0[2,:]])
+plot!(svec, [e[1] for e in μ0[3,:]])
 
+plot(pl1, pl2)
 
-# # using Plots
-# xvec = [e[1] for e in model.grid[1,:]]
-# f = plot()
-# for i=1:size(μ0)[1]
-#     plot!(xvec,μ0[i,:])
-# end
-# f
-# # how to plot distribution ?
+### find the equilibrium
 
-# ###
+y0 = model.calibration.y
+NoLib.NoLib.ss_residual(model, y0; x0=x0)
 
-# model.p.r = 1.025
+ys = NoLib.find_equilibrium(model)
 
-# sol_2 = NoLib.time_iteration_3(model; verbose=false, improve=false)
-# μ_2 = NoLib.ergodic_distribution(model, sol_2.solution)
-# scatter(xvec,μ_2[1,:])
-# scatter!(xvec,μ_2[2,:])
-# scatter!(xvec,μ_2[3,:])
-# # how to plot distribution ?
+### visualize equilibrium
 
-# plot([e[2] for e in model.grid[:]],μ[:])
+# plot residuals
+kvec = range(25, 80; length=20)
+rvec = []
 
+@time NoLib.ss_residual(model, SVector(41.0); diff=true, x0=sol.solution)
 
-# # sol = NoLib.time_iteration_3(model; verbose=false, improve=true)
-
-# ###
-
-# # Now compute the aggregate equilibrium condition
-
-using NoLib: LinearOperator
-
-function equilibrium(model, x_, μ, y_; diff=false)
-
-    p = model.calibration.p
-    s = [NoLib.LVectorLike(merge(model.calibration.m, model.calibration.s),e)  for e in model.grid[:]]
-    L(u) = NoLib.label_GArray(model.calibration.x, u)
-    y = NoLib.LVectorLike(model.calibration.y,y_)
-    Ly(u) = NoLib.LVectorLike(model.calibration.y,y_)
-
-    x = L(x_)
-
-
-    res = sum( μ[i]*(s[i].y-x[i].c) for i=1:length(model.grid)) - y.K*p.δ
-
-    if diff!=true
-        return [res]
-    else
-        res_x = LinearOperator{typeof(x_), SVector{1,Float64}}(
-            dx -> SVector(sum( μ[i]*(-L(dx)[i].c) for i=1:length(model.grid)))
-        )
-        res_μ = LinearOperator{typeof(μ), SVector{1,Float64}}(
-            dμ -> SVector(sum( dμ[i]*(s[i].y-L(x)[i].c) for i=1:length(model.grid)) )
-        )
-        res_y = LinearOperator{SVector{1,Float64},SVector{1,Float64}}(
-            dy -> SVector( -p.δ )
-        )
-        return res, res_x, res_μ, res_y
+using ProgressLogging
+@progress for k in kvec
+    val = try
+        NoLib.ss_residual(model, SVector(k), improve=true; x0=sol.solution, diff=true)
+    catch 
+        NaN
     end
-
-end
-
-using ForwardDiff
-
-function projection(model, y_, z_; diff=false)
-    p = model.calibration.p
-    y = NoLib.LVectorLike(model.calibration.y, y_)
-    z = NoLib.LVectorLike(model.calibration.z, z_)
-
-    r = z.z*y.K^p.α
-    w = z.z*y.K^(1-p.α)
-
-    pp = SVector(w, r) # XXX: warning, this is order-sensitive
-
-    if diff==false
-        return p
-    end
-
-    P_y = ForwardDiff.jacobian(u->projection(model, u, z_), y_)
-    P_z = ForwardDiff.jacobian(u->projection(model, y_, u), z_)
-    return pp, P_y, P_z
-
+    push!(rvec, val)
 end
 
 
-## "Steady-state" values
-x0 = sol.solution   # GVector
-μ0 = NoLib.ergodic_distribution(model, sol.solution)   # GDist
-p0 = SVector(model.calibration.m[1:2]...)
-y0 = SVector(40.0)
-z0 = SVector(model.calibration.z...)
+#### check
+## for some reason there are kinks in that graph
 
-## Derivatives of: F
-
-@time r, J_1, J_2, U, V = NoLib.F(model, x0, x0, p0, p0; diff=true);
-
-# renormalize to get: r, I , T, U, V
-
-r = J_1 \ r     # GVector  (GArray{G,SVector})
-T = J_1 \ J_2   # Operator: GVector->GVector
-U = J_1 \ U     # GMatrix (GArray{G,SMatrix})
-V = J_1 \ V     # GMatrix (GArray{G,SMatrix})
+using Plots
+plot(kvec, [e[1][1] for e in rvec])
+for i=[ e for e in 1:length(rvec) if (e%5==0)]
+    x_ = kvec[i]
+    y_, c_ = rvec[i]
+    scatter!([x_], [y_], color="red")
+    plot!(kvec, y_ .+ (kvec.-x_).*c_, color="red", alpha=0.5)
+end
+scatter!(ys, [0], color="black")
+# plot!(kvec, rvec2)
+# scatter!(kvec, rvec)
+plot!(kvec, kvec*0)
 
 
-## Derivatives of: G
-
-μ1, G_μ, G_x, G_p = NoLib.G(model, μ0, x0, p0; diff=true)
-
-# μ1: GDist ( (GArray{G,Float64}))
-# G_μ: LinearOperator GDist->GDist 
-# G_x: Matrix (  operates on flatten vectors  ) # todo, should be operator
-# G_p: Matrix (  operates on flatten vectors  ) # todo, should probably be GMatrix
-
-G_μ*μ0  # == μ1
-G_x*x0 # same dim as - μ0
-G_p*p0 # same dim as - μ0
-
-
-## Derivatives of A:
-
-a, A_x, A_μ, A_y = equilibrium(model, x0, μ0, y0; diff=true)
-
-
-import Main.Temp: LinearOperator
-import Main.Temp: *
-
-A_x*x0 # GVector->SVector
-A_μ*μ0 # GDist->SVector
-A_y*y0 # SVector->SVector
-
-## Derivatives of P:
-
-p, P_y, P_z = projection(model, y0, z0; diff=true)
-
-P_y*y0
-P_z*z0

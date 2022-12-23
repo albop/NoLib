@@ -11,7 +11,7 @@ function dF_2(model, x::GArray, φ::GArray )
     for (s,x) in zip(enum(model.grid), x)
         l = []
         for (w, S) in τ(model, s, x)
-            el = -w*ForwardDiff.jacobian(u->arbitrage(model,s,x,S,u), φ(S))
+            el = w*ForwardDiff.jacobian(u->arbitrage(model,s,x,S,u), φ(S))
             push!(l, (el, S))
         end
         push!(res, l)
@@ -95,7 +95,8 @@ convert(::Type{LinearMap}, L::LF) = let
     elt = eltype(L.M_ij)
     p,q = size(elt)
     N = length(L.grid)
-    fun = u->(ravel(L*GArray(L.grid, reinterpret(elt, u))))
+    typ = SVector{q, Float64}
+    fun = u->(ravel(L*GArray(L.grid, reinterpret(typ, u))))
     LinearMap(
         fun,
         p*N,
