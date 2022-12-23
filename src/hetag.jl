@@ -246,12 +246,16 @@ function G(model, μ::GDist{T}, x, p0; diff=false) where T
             u -> begin 
                 # no = maximum(abs, u)
                 no = norm(u)
-                (G(model, μ, x+(ε/no)*u, p0; diff=false) - G(model, μ, x, p0; diff=false))*(no/ε)
+                if no==0
+                    μ*0.0
+                else
+                    (G(model, μ, x+(ε/no)*u, p0; diff=false) - G(model, μ, x, p0; diff=false))*(no/ε)
+                end
             end
         )
         
-        # the returned functions are inefficient but dimensionally consistent
-        return μ1, G_μ, G_x, G_p
+        # the returned functions are inefficient by dimensionally consistent
+        return (;_0=μ1, _μ=G_μ, _x=G_x, _p=G_p)
     end
 
 end
@@ -311,7 +315,7 @@ function F(model, controls::GArray, φ::GArray, p0, p1; diff=false)
     r_3 = GArray(model.grid, reinterpret(elt, rr_p0[:]))
     r_4 = GArray(model.grid, reinterpret(elt, rr_p1[:]))
 
-    return r, r_1, r_2, r_3, r_4
+    return (; _0=r, _J1=r_1, _J2=r_2, _U=r_3, _V=r_4)
 
 end
 
@@ -392,7 +396,7 @@ function projection(model, y::SVector, z::SVector; diff=false)
         P_y = ForwardDiff.jacobian(u->projection(model, u, z; diff=false), y)
         P_z = ForwardDiff.jacobian(u->projection(model, y, u; diff=false), z)
 
-        return pp, P_y, P_z
+        return (;_0=pp, _y=P_y, _z=P_z)
     end
 
 end
@@ -455,7 +459,7 @@ function equilibrium(model, μ::NoLib.GVector, x, y; diff=false)
         #     dy -> sum(  μ[i]*ForwardDiff.jacobian(u->equilibrium(model,model.grid[i], x[i], u), y)*dy for i=1:length(model.grid))
         # )
         # return res, (r_μ,res_μ), (r_x,res_x), (r_y,res_y)
-        return res, r_μ, r_x, r_y
+        return (;_0=res, _μ=r_μ, _x=r_x, _y=r_y)
     end
 
 end

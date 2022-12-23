@@ -323,6 +323,17 @@ p, P_y, P_z = projection(model, y0, z0; diff=true)
 P_y*y0
 P_z*z0
 
+
+
+# TEST
+K = 100
+# dy_vals = [SVector(y0*0.0001) for k=1:K]
+# @time NoLib.J(F, G, A, P, dy_vals);
+
+@time Rk, Tk, Sk = NoLib.J_forward(A, G, T, U, V, P, K);
+@time Wk, Xk = NoLib.J_backward(A, G, P, Rk, K);
+@time J_x, J_μ1, J_μ2 = NoLib.jacobian_matrixes(Tk, Wk, Xk, K);
+
 NoLib.GArray(U.grid, [e*p0 for e in U.data])
 
 function check(p0, T, U, V, A_x;K=200)
