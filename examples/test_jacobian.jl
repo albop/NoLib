@@ -72,7 +72,7 @@ J = (;F, G, A, P)
 
 # the following is very slow, because of slow G._x * ... 
 
-@time Rk, Tk, Sk, Skk = NoLib.J_forward(A, G, T, U, V, P, K);
+@time Rk, Tk, Sk = NoLib.J_forward(A, G, T, U, V, P, K);
 
 @time Wk, Xk = NoLib.J_backward(A, G, P, Rk, K);
 

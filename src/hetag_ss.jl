@@ -35,7 +35,9 @@ function ss_residual(model, y_::Union{SVector, SLArray}; diff=false, return_all=
     end
 
     if diff==true
+        
         J = f_residuals(mod, μ, x, y; diff=true)
+        # return J
         @assert length(y) == 1
 
         da = ss_residual_J(J, SVector(1.0))[3]
@@ -57,20 +59,20 @@ function ss_residual_J(J, dy)
 
     dx = _x
     tt = _x
-    for i=1:5000
+    for i=1:500
         tt = T*tt
         dx = dx + tt
     end
 
-    _μ = (J.G._x*dx + J.G._y*dy)
-    
-    G = J.G._μ
+    _μ = (J.G._x*dx) + J.G._y*dy
+                
+    G_μ = J.G._μ
 
     dμ = _μ
     mm = _μ
-    for i=1:5000
-        mm = G*mm
-        dμ = dμ + mm # this is incorrect
+    for i=1:500
+        mm = G_μ*mm
+        dμ += mm # this is incorrect
     end
 
     da = (J.A._μ*dμ) + (J.A._x*dx) + (J.A._y*dy)
@@ -84,8 +86,8 @@ function find_equilibrium(model; x0=nothing, y0=model.calibration.y, τ_ε=1e-8,
 
 
     for it=1:10
+
         res = ss_residual(model, y0; x0=x0, diff=true)
-        println(res)
         a, da = res
         ε = maximum(abs, a)
 

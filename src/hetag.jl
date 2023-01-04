@@ -1,5 +1,5 @@
 using FiniteDiff
-
+using SparseArrays
 
 struct LinearOperator{From,To}
     from::From
@@ -181,12 +181,36 @@ function transition_matrix(model, x, p0)
 
 end
 
+function transition_matrix_diff(model, x, p0)
+
+    n_x = length(model.calibration.x)
+    N = length(x)
+    P = zeros(SVector{n_x, Float64},N,N)
+
+    p1 = p0 # irrelevant here
+
+    for (ss,a) in zip(enum(model.grid),x)
+        ind_i = ss[1]
+        i = to__linear_index(model.grid, ind_i)
+        indices = tuple( (to__linear_index(model.grid, ind_j) for (w, (ind_j, _)) in τ_fit(model, ss, a, p0, p1) )...)
+        values = ForwardDiff.jacobian(
+            u->SVector( (w for (w,e) in  NoLib.τ_fit(model, ss, u, p0, p1))... ),
+            a
+        )
+        for (k,j) in enumerate(indices)
+            P[i,j] = values[k,:]
+        end
+    end
+
+    P
+
+end
 
 # TODO: this is a linear operation GArray->GArray, stored as a matrix.
 struct LinnMatt{G}
     grid::G
     μ 
-    P::Matrix{Float64}
+    P::AbstractMatrix{Float64}
 end
 
 convert(::Type{Matrix}, a::LinnMatt) = a.P
@@ -198,6 +222,18 @@ convert(::Type{Matrix}, a::LinnMatt) = a.P
 *(L::GVector, v::SVector) = GVector(L.grid, [e*v for e in L.data])
 *(L::GVector, v::SMatrix) = GVector(L.grid, [e*v for e in L.data])
 
+struct GG_x{T}
+    P_x::T
+    μ::GDist
+end
+
+function *(L::GG_x, x::GVector)
+    P = [L.P_x[i,j]'*x[j] for i=1:size(L.P_x,1), j=1:size(L.P_x,2)]
+    return GVector(
+        L.μ.grid,
+        P*L.μ.data
+    )
+end
 
 function G(model, μ::GDist{T}, x, p0; diff=false) where T
 
@@ -222,7 +258,7 @@ function G(model, μ::GDist{T}, x, p0; diff=false) where T
         #     dμ->G(model, dμ, x, p0; diff=false)
         # )
         P = transition_matrix(model, x, p0)
-        G_μ = LinnMatt(model.grid, μ, copy(P'))
+        G_μ = LinnMatt(model.grid, μ, SparseMatrixCSC(P'))
 
         # G_μ = LinearOperator{typeof(x),t_μ}(
         #     u->unravel(μ, P*ravel(u))
@@ -239,20 +275,9 @@ function G(model, μ::GDist{T}, x, p0; diff=false) where T
         #     reinterpret( SMatrix{1, n_p, Float64, n_p} ,(copy(mat_p'))[:])
         # )
 
-        ε = 1e-6
-        G_x = LinearOperator{typeof(x), t_μ}(
-            x,
-            μ,
-            u -> begin 
-                # no = maximum(abs, u)
-                no = norm(u)
-                if no==0
-                    μ*0.0
-                else
-                    (G(model, μ, x+(ε/no)*u, p0; diff=false) - G(model, μ, x, p0; diff=false))*(no/ε)
-                end
-            end
-        )
+        P_x = transition_matrix_diff(model, x, p0)
+        G_x = GG_x(copy(P_x'), μ)
+
         
         # the returned functions are inefficient by dimensionally consistent
         return (;_0=μ1, _μ=G_μ, _x=G_x, _p=G_p)
@@ -463,3 +488,4 @@ function equilibrium(model, μ::NoLib.GVector, x, y; diff=false)
     end
 
 end
+

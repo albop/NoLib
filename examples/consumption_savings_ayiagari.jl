@@ -28,14 +28,20 @@ plot(pl1, pl2)
 ### find the equilibrium
 
 y0 = model.calibration.y
-NoLib.NoLib.ss_residual(model, y0; x0=x0)
 
-ys = NoLib.find_equilibrium(model)
+@time NoLib.NoLib.ss_residual(model, y0; x0=x0);
+
+
+@time NoLib.NoLib.ss_residual(model, y0; x0=x0, diff=true);
+
+@time ys = NoLib.find_equilibrium(model)
+
+
 
 ### visualize equilibrium
 
 # plot residuals
-kvec = range(25, 80; length=20)
+kvec = range(30, 60; length=20)
 rvec = []
 
 @time NoLib.ss_residual(model, SVector(41.0); diff=true, x0=sol.solution)
@@ -66,5 +72,9 @@ scatter!(ys, [0], color="black")
 # plot!(kvec, rvec2)
 # scatter!(kvec, rvec)
 plot!(kvec, kvec*0)
+
+
+###
+### Sequential jacobian
 
 

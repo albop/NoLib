@@ -171,11 +171,11 @@ function J_forward(A, G, T, U, V, P, k::Int64)
 
     
     #### TODO: CHeck wether the following is correct (it is super slow)
-    # hk = Hk(G._x, k)    
-    # Sk = hk * Rk
+    hk = Hk(G._x, k)    
+    Sk = hk * Rk
 
-    # looks simpler (not faster)
-    Sk = [G._x*e for e in Rk]
+    # looks simpler
+    # Sk = [G._x*e for e in Rk]
     
     return Rk, Tk, Sk
     

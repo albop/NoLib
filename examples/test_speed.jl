@@ -1,7 +1,7 @@
 using Test
 
 
-include("neoclassical_model.jl")
+include("models/neoclassical.jl")
 
 
 

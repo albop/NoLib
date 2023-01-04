@@ -12,8 +12,12 @@ i0 = 3
 s0_ = [NoLib.enum(model.grid)...][i0]
 s0 = [NoLib.enum(model.grid)...][i0]
 m0 = s0[2:end]
-φ = GVector(model.grid, [Iterators.repeated(SVector(model.x), length(model.grid))...])
+φ = GVector(model.grid, [Iterators.repeated(SVector(model.calibration.x), length(model.grid))...])
 x0 = φ[3]
+
+s0
+x0
+
 S = [NoLib.τ(model, s0, x0)...][1][2]
 
 
