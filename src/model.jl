@@ -62,8 +62,14 @@ end
 
 function arbitrage(model, s, x, S, X)
     p = model.calibration.p
-    n_k = length(model.calibration.m)
-    arbitrage(model, s[2][1:n_k], s[2][n_k+1:end], x, S[2][1:n_k], S[2][n_k+1:end], X, p)
+    
+    arbitrage(model, 
+        NoLib.split_states(model, s)...,
+        x,
+        NoLib.split_states(model, S)...,
+        X,
+        p
+    )
 end
 
 

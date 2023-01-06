@@ -22,7 +22,7 @@ function F!(out, model, controls::GArray, φ::GArray)
         s_ = model.grid[n]
         s = ((i,j), s_)
         x = controls[n]
-         out[n] = F(model,s,x,φ)
+        out[n] = F(model,s,x,φ)
     end
 end
 # function F!(out, model, controls::GArray, φ::GArray)

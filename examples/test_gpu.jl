@@ -5,7 +5,7 @@ using CUDAKernels # Required to access CUDADevice
 using KernelAbstractions
 
 
-include("neoclassical_model.jl")
+include("models/neoclassical.jl")
 
 Adapt.@adapt_structure NoLib.GArray
 

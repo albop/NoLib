@@ -1,4 +1,4 @@
-include("models/neoclassical.jl")
+include("models/consumption_savings_ayiagari.jl")
 
 
 φ = GVector(model.grid, [Iterators.repeated(SVector(model.calibration.x), length(model.grid))...])
@@ -13,7 +13,6 @@ function check_indexing(model, φ)
     else
         return 
     end
-
 end
 
 @time check_indexing(model, φ);
@@ -41,6 +40,23 @@ function compute_transition(model, φ)
     end
 end
 
+# check whether model equations allocate
+
+function eqs_(model)
+    s0 = ((1,1),(model.grid[1]))
+    x0 = SVector(model.calibration.x...)
+    NoLib.arbitrage(model, s0, x0, s0, x0)
+end
+
+@time eqs_(model);
+
+function compute_res_(model, φ)
+    s0 = ((1,1),(model.grid[1]))
+    x0 = SVector(model.calibration.x...)
+    NoLib.F(model, s0, x0, φ)
+end
+
+@time compute_res_( model, φ);
 
 function compute_res!(r, model, φ)
     NoLib.F!(r, model, φ, φ)
@@ -59,9 +75,8 @@ end
 @time compute_transition(model, φ);
 
 
-
-
 @time compute_res!(r, model, φ)
+
 @time compute_res_2!(r, model, φ)
 
 @assert (@allocated compute_res!(r, model, φ)) == 0
