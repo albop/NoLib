@@ -46,7 +46,10 @@ getindex(g::SGrid{d}, i::Int) where d = g.points[i]
 getindex(g::PGrid, c::CartesianIndex) = g[c[1],c[2]]
 getindex(g::PGrid, ::Colon) = [g...]
 
-cover(m,v::SVector{d,T}) where d where T = SVector{d,T}(m...,v[length(m)+1:end]...)
+cover(m,v::SVector{d,T}) where d where T = SVector{d,T}(
+    m...,
+    (v[i] for i=length(m)+1:length(v))...
+)
 
 PGrid(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{typeof(g1), CGrid{d2}, d1+d2}(g1, g2)
 

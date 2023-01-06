@@ -1,18 +1,23 @@
-include("neoclassical_model.jl")
+include("models/neoclassical.jl")
 
 
 φ = GVector(model.grid, [Iterators.repeated(SVector(model.calibration.x), length(model.grid))...])
 r = deepcopy(φ)
 
 
+
 function check_indexing(model, φ)
-    # sum( model.grid[i][2] for i=1:length(model.grid) )
-    # n = length(model.grid)
-    n = length(model.grid)
-    n
+    r = sum( model.grid[i][2] for i=1:length(model.grid) )
+    if r<0.0
+        return 1.0
+    else
+        return 
+    end
+
 end
 
 @time check_indexing(model, φ);
+@allocated check_indexing(model, φ)
 
 function check_cover()
     a = SVector(1.0, 2.0, 3.0, 4.0)
@@ -22,12 +27,18 @@ function check_cover()
 end
 
 @time check_cover()
+@allocated check_cover()
 
 function compute_transition(model, φ)
     i = 1
     s = ((1,1),(model.grid[1]))
-    r = sum(s for (w,(i,s)) in NoLib.τ(model, s, x))
-    return sum(r)
+    r = sum(s for (w,(i,s)) in NoLib.τ(model, s, φ))
+    e = sum(r)
+    if e<-1.0
+        return true
+    else
+        return
+    end
 end
 
 
@@ -36,6 +47,8 @@ function compute_res!(r, model, φ)
 end
 
 function compute_res_2!(r, model, φ)
+    x = model.calibration.x
+
     for (i,s) in NoLib.enum(model.grid)
         x = φ[i...]
         r[i...] = NoLib.F(model, (i,s), x, φ)
@@ -48,8 +61,8 @@ end
 
 
 
-compute_res!(r, model, φ)
-compute_res_2!(r, model, φ)
+@time compute_res!(r, model, φ)
+@time compute_res_2!(r, model, φ)
 
 @assert (@allocated compute_res!(r, model, φ)) == 0
 @assert (@allocated compute_res_2!(r, model, φ)) == 0
