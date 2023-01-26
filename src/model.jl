@@ -73,6 +73,9 @@ function arbitrage(model, s, x, S, X)
 end
 
 
+function split_states(model, S::Tuple{ind, v}) where ind where v<:SVector
+    split_states(model, S[2])
+end
 
 function split_states(model, s_)
 
