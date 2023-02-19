@@ -1,7 +1,7 @@
 abstract type Domain{d} end
     
 struct CartesianDomain{d}
-    n::NTuple{d, Int64}
+    # n::NTuple{d, Int64}
     min::NTuple{d, Float64}
     max::NTuple{d, Float64}
 end
