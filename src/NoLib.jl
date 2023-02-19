@@ -39,6 +39,7 @@ module NoLib
     include("hetag.jl")
     include("hetag_ss.jl")
     include("jac.jl")
+    include("space.jl")
 
 end # module
 
