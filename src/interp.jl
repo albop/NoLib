@@ -7,7 +7,7 @@ import Base: getindex
 getindex(A::Vector{Float64}, i::VectorizationBase.Vec{4,Int64}) = VectorizationBase.Vec{4, Float64}(A[i(1)], A[i(2)], A[i(3)], A[i(4)])
 
 
-@inline function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values::AbstractArray{T}, x::U) where T where U <: SVector{1,Float64}
+@inline function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values::AbstractArray{T}, x::U) where T where U
 # function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values, x) where T where U 
 
     a = (ranges[1][1])

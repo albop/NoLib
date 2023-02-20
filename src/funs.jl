@@ -55,6 +55,10 @@ abstract type Function{d} end
 
 
 
+using .splines
+using .splines: Linear, Cubic, MLinear, MCubic, CubicInterpolator
+
+
 
 struct DFun{Dom, Gar, Itp, vars}
     domain::Dom
@@ -83,8 +87,6 @@ function DFun(domain, values; interp_mode=:linear)
         throw("Unkown interpolation mode $(interp_mode)")
     end
 end
-
-using .splines
 
 # function DFun(domain, values, itp::Cubic, vars)
 
