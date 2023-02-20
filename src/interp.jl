@@ -1,12 +1,13 @@
 module Interpolation
 
+using StaticArrays
 import LoopVectorization: VectorizationBase
 import Base: getindex
 
 getindex(A::Vector{Float64}, i::VectorizationBase.Vec{4,Int64}) = VectorizationBase.Vec{4, Float64}(A[i(1)], A[i(2)], A[i(3)], A[i(4)])
 
 
-@inline function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values::AbstractArray{T}, x::U) where T where U 
+@inline function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values::AbstractArray{T}, x::U) where T where U <: SVector{1,Float64}
 # function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values, x) where T where U 
 
     a = (ranges[1][1])
@@ -29,6 +30,48 @@ getindex(A::Vector{Float64}, i::VectorizationBase.Vec{4,Int64}) = VectorizationB
     (1.0 - λ)*v0 + λ*v1
 
 end
+
+@inline function interp(ranges::Tuple{Tuple{Float64, Float64, Int64},Tuple{Float64, Float64, Int64}}, values::AbstractArray{T}, x_1::U, x_2::U) where T where U where V
+    # function interp(ranges::Tuple{Tuple{Float64, Float64, Int64}}, values, x) where T where U 
+    
+        a_1 = (ranges[1][1])
+        b_1 = (ranges[1][2])
+        n_1 = (ranges[1][3])
+    
+        a_2 = (ranges[2][1])
+        b_2 = (ranges[2][2])
+        n_2 = (ranges[2][3])
+
+        δ_1 = (b_1-a_1)/(n_1-1)
+        δ_2 = (b_2-a_2)/(n_2-1)
+    
+        i_1 = div( (x_1-a_1), δ_1)
+        i_2 = div( (x_2-a_2), δ_2)
+    
+        i_1 = max(min(i_1, n_1-2), 0)
+        i_2 = max(min(i_2, n_2-2), 0)
+    
+        λ_1 = (x_1-(a_1 + δ_1*i_1))/δ_1
+        λ_2 = (x_2-(a_2 + δ_2*i_2))/δ_2
+    
+        i_1_ = floor(Int, i_1) + 1
+        i_2_ = floor(Int, i_2) + 1
+
+        v00 = values[i_1_, i_2_]
+        v01 = values[i_1_, i_2_+1]
+        v10 = values[i_1_+1, i_2_]
+        v11 = values[i_1_+1, i_2_+1]
+    
+        res = (1.0 - λ_2)*(
+            (1.0 - λ_1)*v00 + λ_1*v10
+        ) + λ_2 * (
+            (1.0 - λ_1)*v01 + λ_1*v11
+        )
+    
+        return res
+
+end
+
 
 function vecinterp_1(ranges, values::Vector{T}, x::Vector{<:Number}) where T
     N = length(x)

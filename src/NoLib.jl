@@ -27,6 +27,7 @@ module NoLib
         SLVector( (merge(NamedTuple(a), b)) )
     end
 
+    include("splines/splines.jl")
     
     include("grids.jl")
     include("garray.jl")
@@ -40,6 +41,10 @@ module NoLib
     include("hetag_ss.jl")
     include("jac.jl")
     include("space.jl")
+
+
+
+    include("plots.jl")
 
 end # module
 

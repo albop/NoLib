@@ -140,6 +140,41 @@ iterate(s::CGrid{1}, state) = state<length(s) ? let
 end : nothing
 
 
+
+function Base.iterate(g::CGrid{d}) where d
+    x = g.ranges[1][1]
+    y = g.ranges[2][1]
+    return (SVector{d, Float64}(x,y),(y,1,1))
+end
+
+function Base.iterate(g::CGrid{d},state) where d
+    y,i,j=state
+    if i<g.ranges[1][3]
+        i += 1
+        a = g.ranges[1][1]
+        b = g.ranges[1][2]
+        x = a + (b-a)*(i-1)/(g.ranges[1][3]-1)
+        return (SVector{d,Float64}(x, y), (y,i,j))
+    else
+        if j==g.ranges[2][3]
+            return nothing
+        else
+            j += 1
+            i = 1
+            a = g.ranges[1][1]
+            b = g.ranges[1][2]
+            x = a + (b-a)*(i-1)/(g.ranges[1][3]-1)
+            a = g.ranges[2][1]
+            b = g.ranges[2][2]
+            y = a + (b-a)*(j-1)/(g.ranges[2][3]-1)
+            return (SVector{d,Float64}(x, y), (y,i,j))
+        end
+    end
+end
+
+
+
+
 function Base.iterate(g::PGrid{G1, G2, d}) where G1 where G2 where d
     x = g.g1[1]
     y = g.g2[1]
