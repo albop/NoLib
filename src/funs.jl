@@ -51,12 +51,13 @@ dims(p::P) where P<:ProductSpace = tuple(dims(p.spaces[1])..., dims(p.spaces[2])
 
 
 
+
 abstract type Function{d} end
 
 
 
 using .splines
-using .splines: Linear, Cubic, MLinear, MCubic, CubicInterpolator
+using .splines: Linear, Cubic, MLinear, MCubic, CubicInterpolator, SplineInterpolator
 
 
 
@@ -65,6 +66,9 @@ struct DFun{Dom, Gar, Itp, vars}
     values::Gar
     itp::Itp
 end
+
+vvars(::DFun{D,G,I,vars}) where D where G where I where vars<:Val{t} where t = t
+vars(dfun::DFun) = vvars(dfun)
 
 DFun(domain, values, itp, vars) = DFun{typeof(domain), typeof(values), typeof(itp), Val{vars}}(domain, values, itp)
 function DFun(domain, values, itp)
@@ -76,55 +80,39 @@ function DFun(domain, values, itp)
     return DFun(domain, values, itp, vars)
 end
 # DFun(domain, values, itp) = begin @assert ndims(domain)==1 ; DFun(domain, values, itp, (:y,)) end
-function DFun(domain, values; interp_mode=:linear)
+# works for cartesian only
+function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G<:CGrid
+    vv = reshape(values.data, (e[3] for e in values.grid.ranges)...)
     if interp_mode == :linear
-        return DFun(domain, values, MLinear())
+        itp = SplineInterpolator(values.grid.ranges; values=vv, k=1)
     elseif interp_mode == :cubic
-        vv = reshape(values.data, (e[3] for e in values.grid.ranges)...)
-        itp = CubicInterpolator(values.grid; values=vv)
-        return DFun(domain, values, itp)
+        itp = SplineInterpolator(values.grid.ranges;  values=vv,k=3)       
     else
         throw("Unkown interpolation mode $(interp_mode)")
     end
+    return DFun(domain, values, itp)
 end
 
-# function DFun(domain, values, itp::Cubic, vars)
+function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid
+    if interp_mode == :linear
+        k=1
+    elseif interp_mode == :cubic
+        k=3
+    else
+        throw("Unkown interpolation mode $(interp_mode)")
+    end
 
-# end
-
-
-vvars(::DFun{D,G,I,vars}) where D where G where I where vars<:Val{t} where t = t
-vars(dfun::DFun) = vvars(dfun)
-# DFun(domain<:Dom, values) where Dom<:Space{1} = DFun(domain, values, MLinear())
-
-# Gar<:CartesianGrid
-# 1d
-
-function (f::DFun{A,B,I,vars})(i, x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I<:Linear where G<:PGrid{g1, g2}  where g1<:SSGrid where g2<:CGrid where vars where d2 where U
-    
-    gg1 = f.values.grid.g1
-    ranges = f.values.grid.g2.ranges
-    data = f.values.data
-    dims = tuple(length(gg1), (e[3] for e in ranges)... )
-    v = reshape(view(data, :), dims) 
-    return interp(ranges, view(v,i,:), x...)
+    # TODO: check values.data[i,:]
+    sz = (e[3] for e in values.grid.g2.ranges)
+    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=3)  for i=1:length(values.grid.g1)  )...)
+    return DFun(domain, values, itps)
 
 end
 
-function (f::DFun{A,B,I,vars})(x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I<:Linear where G<:CGrid where vars where d2 where U
-    ranges = f.values.grid.ranges
-    data = f.values.data
-    dims = tuple( (e[3] for e in ranges)... )
-    v = reshape(view(data, :), dims) 
-    interp(ranges, v, x...)
-end
 
-function (f::DFun{A,B,I,vars})(x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I<:Cubic where G<:CGrid where vars where d2 where U
 
-    a = [e[1] for e in f.values.grid.ranges]
-    b = [e[2] for e in f.values.grid.ranges]
-    n = [e[3] for e in f.values.grid.ranges]
-    splines.eval_UC_spline(a,b,n, f.itp.θ, x)
+function (f::DFun{A,B,I,vars})(x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I where G<:CGrid where vars where d2 where U
+    f.itp(x)
 end
 
 
