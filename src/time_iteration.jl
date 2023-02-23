@@ -1,3 +1,11 @@
+F(model, s, x::SVector, φ::DFun) = 
+    sum(
+         w*arbitrage(model,s,x,S,φ(S)) 
+         for (w,S) in τ(model, s, x)
+    )
+
+
+
 F(model, s, x::SVector, φ::GArray) = 
     sum(
          w*arbitrage(model,s,x,S,φ(S)) 

@@ -48,32 +48,32 @@ getindex(g::GArray{G,T}, i::Int64) where G where T = g.data[i]
 setindex!(g::GArray, x, i) = (g.data[i] = x)
 
 
-# interpolating indexing
-function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1<:SGrid where G2<:CGrid{d2} where d where d2 where T where U
-    g1 = xa.grid.g1
-    g2 = xa.grid.g2
-    dims = tuple(length(g1), (e[3] for e in g2.ranges)... )
-    # ranges = tuple( (range(e...) for e in g2.ranges)... )
-    # v = view(reshape(xa.data, dims),i,:)
-    # v = view(reshape(xa.data, dims),i,:)
-    v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
-    # v = view(xa.data, :) #1d only
-    res = interp(g2.ranges, view(v,i,:), p...)
-    res
-end
+# # interpolating indexing
+# function (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, p::SVector{d2, U}) where G1<:SGrid where G2<:CGrid{d2} where d where d2 where T where U
+#     g1 = xa.grid.g1
+#     g2 = xa.grid.g2
+#     dims = tuple(length(g1), (e[3] for e in g2.ranges)... )
+#     # ranges = tuple( (range(e...) for e in g2.ranges)... )
+#     # v = view(reshape(xa.data, dims),i,:)
+#     # v = view(reshape(xa.data, dims),i,:)
+#     v = reshape(view(xa.data, :), dims) ### Weird but should not allocate
+#     # v = view(xa.data, :) #1d only
+#     res = interp(g2.ranges, view(v,i,:), p...)
+#     res
+# end
 
-(xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, j::Int64) where G1 where G2 where d where T  = xa[i,j]
-# (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 where G2 where U where d where T = xa(S[1][1],S[2][2])
-(xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64, Int64}, U}) where G1 where G2 where U where d where T = xa[S[1]...]
+# (xa::GArray{PGrid{G1, G2, d}, T})(i::Int64, j::Int64) where G1 where G2 where d where T  = xa[i,j]
+# # (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 where G2 where U where d where T = xa(S[1][1],S[2][2])
+# (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64, Int64}, U}) where G1 where G2 where U where d where T = xa[S[1]...]
 
-function (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 where G2 where U<:SVector where d where T
-    #### TODO: replace
-    n_x =  ndims(xa.grid.g2)
-    V = S[2]
-    n = length(V)
-    s = SVector((V[i] for i=n-n_x+1:n)...)
-    xa(S[1][1],s)
-end
+# function (xa::GArray{PGrid{G1, G2, d}, T})(S::Tuple{Tuple{Int64}, U}) where G1 where G2 where U<:SVector where d where T
+#     #### TODO: replace
+#     n_x =  ndims(xa.grid.g2)
+#     V = S[2]
+#     n = length(V)
+#     s = SVector((V[i] for i=n-n_x+1:n)...)
+#     xa(S[1][1],s)
+# end
 
 
 
