@@ -36,7 +36,7 @@ function τ(model, ss::Tuple, a::SVector, p0, p1)
     (i,_),(s_) = ss # get current state values
 
     # TODO: replace following block by one nonallocating function
-    k  = length(model.calibration.m)
+    k = length(model.calibration.m)
     l = length(model.calibration.s)
     m = SVector((s_[i] for i=1:k)...)
     s = SVector((s_[i] for i=k+1:(k+l))...)
@@ -217,6 +217,7 @@ convert(::Type{Matrix}, a::LinnMatt) = a.P
 
 *(L::LinnMatt, v::GVector) = unravel(L.μ, L.P*ravel(v))
 *(L::LinnMatt, v::SVector) = unravel(L.μ, L.P*v)
+*(L::LinnMatt, v:: SLArray{Tuple{d}, Float64, 1, d, N})  where N where d = L*SVector(v...)
 
 
 *(L::GVector, v::SVector) = GVector(L.grid, [e*v for e in L.data])

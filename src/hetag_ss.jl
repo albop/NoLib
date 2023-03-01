@@ -127,7 +127,7 @@ function f_residuals(model, μ, x, y; diff=false)
 
     else
 
-        p, P_y, P_z = projection(model, y, z; diff=true)
+        p, P_y, P_z = projection(model, SVector(y), SVector(z); diff=true)
 
         r, J_1, J_2, U_p, V_p = NoLib.F(model, x, x, p, p; diff=true);
         
@@ -145,7 +145,7 @@ function f_residuals(model, μ, x, y; diff=false)
     
         G_y = NoLib.LinnMatt(G_p.grid, G_p.μ, G_p.P*P_y)
     
-        a, A_μ, A_x,  A_y = equilibrium(model, μ, x, y; diff=true)
+        a, A_μ, A_x,  A_y = equilibrium(model, μ, x, SVector(y); diff=true)
         
         return (;
             F=(;_x_1=J_1, _x_2=J_2, _y=U),
