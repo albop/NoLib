@@ -3,7 +3,7 @@ using NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid
+using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid, GridSpace, CartesianSpace
 import NoLib: transition, arbitrage
 import NoLib: ×, DModel
 
@@ -32,12 +32,19 @@ model = let
     # Q = @SMatrix [-0.05; 0.05]
     Q = @SMatrix [-0.1; 0.1]
 
+    domain = GridSpace(
+        [Q[i,:] for i=1:size(Q,1)] 
+    ) × CartesianSpace(
+        k=[0.1, 5.0]
+    )
+
     exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
     endo = CGrid( ((0.1, 5.0, 500),) )
     grid = exo × endo
 
     DModel(
         (;m, s, x, p,),
+        domain,
         grid,
         P
     )

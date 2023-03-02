@@ -1,4 +1,7 @@
+using NoLib
+
 include("models/neoclassical.jl")
+
 
 using NoLib: DFun
 
@@ -10,13 +13,12 @@ m0 = s0[2:end]
 
 x = GVector(model.grid, [Iterators.repeated(SVector(model.calibration.x), length(model.grid))...])
 
-### TODO: interpolation not defined for pgrid
+φ = NoLib.DFun(model, x)
 
-φ = DFun(model.grid, x)
-
-φ.itp.θ
+φ(1, SVector(0.1))
 
 x0 = x[3]
+r = NoLib.F(model, s0, x0, φ)
 
 S = [NoLib.τ(model, s0, x0)...][1][2]
 
