@@ -139,7 +139,8 @@ function f_residuals(model, μ, x, y; diff=false)
 
         U_ = U_y + V_y
 
-        U = NoLib.LinnMatt(model.grid, x, cat(U_.data...; dims=1))
+        # U = NoLib.LinnMatt(model.grid, x, cat(U_.data...; dims=1))
+        U = U_
     
         μ1, G_μ, G_x, G_p = NoLib.G(model, μ, x, p; diff=true)
     
@@ -148,8 +149,8 @@ function f_residuals(model, μ, x, y; diff=false)
         a, A_μ, A_x,  A_y = equilibrium(model, μ, x, SVector(y); diff=true)
         
         return (;
-            F=(;_x_1=J_1, _x_2=J_2, _y=U),
             G=(;_μ=G_μ, _x=G_x, _y=G_y),
+            F=(;_x_1=J_1, _x_2=J_2, _y=U),
             A=(;_μ=A_μ, _x=A_x, _y=A_y)
         )
         # (J_1, J_2, U),(G_μ, G_x, G_y),(A_μ, A_x,  A_y))
