@@ -26,7 +26,6 @@ end
 ddims(dom::CartesianSpace{d,dims}) where d where dims<:Val{t} where t = t
 
 dims(dom::CartesianSpace) = ddims(dom)
-
 ndims(dom::CartesianSpace{d, dims}) where d where dims = d
 
 
@@ -35,6 +34,7 @@ struct GridSpace{N,d,dims}
     points::SVector{N,SVector{d,Float64}}
 end
 GridSpace(v::SVector{N, SVector{d, Float64}}) where d where N = GridSpace{length(v), d, Val{(:i_)}}(SVector(v...))
+GridSpace(v::Vector{SVector{d, Float64}}) where d where N = GridSpace{length(v), d, Val{(:i_)}}(SVector(v...))
 
 ndims(gd::GridSpace{N,d,dims}) where N where d where dims = d
 ddims(gd::GridSpace{N,d,dims}) where N where d where dims<:Val{e} where e = begin println("JI"); e end
@@ -109,13 +109,44 @@ function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G
 
 end
 
+function DFun(model::DModel, values::GVector{G,V}; interp_mode=:linear) where V where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid
 
+    domain = model.domain
+    
+    if interp_mode == :linear
+        k=1
+    elseif interp_mode == :cubic
+        k=3
+    else
+        throw("Unkown interpolation mode $(interp_mode)")
+    end
 
+    # TODO: check values.data[i,:]
+    sz = (e[3] for e in values.grid.g2.ranges)
+    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=3)  for i=1:length(values.grid.g1)  )...)
+    return DFun(domain, values, itps)
+
+end
+
+## Cart
 function (f::DFun{A,B,I,vars})(x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I where G<:CGrid where vars where d2 where U
     f.itp(x)
 end
 
+## PGrid
+function (f::DFun{A,B,I,vars})(i::Int, x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid where vars where d2 where U
+    f.itp[i](x)
+end
 
+function (f::DFun{A,B,I,vars})(loc::Tuple{Tuple{Int64}, SVector{d2, U}})  where A where B<:GArray{G,V} where V where I where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid where vars where d2 where U
+    # TODO: not beautiful
+    x_ = loc[2]
+    dd1 = ndims(f.values.grid.g1)
+    dd2 = ndims(f.values.grid.g2)
+    x = SVector((x_[i] for i=(dd1+1):(dd1+dd2))...)
+    println(x)
+    f.itp[loc[1][1]](x)
+end
 
 # Compatibility calls
 

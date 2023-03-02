@@ -1,17 +1,25 @@
 # functions to help with model definition
 
-struct Model{A,B,C}
-    name::Symbol
+struct Model{A,B,C,N}
     calibration::A
     domain::B
     transition::C
 end
 
-struct DModel{A,B,C}
+struct DModel{A,B,C,D,N}
     calibration::A
-    grid::B
-    transition::C
+    domain::B
+    grid::C
+    transition::D
 end
+
+Model(calibration::A, domain::B, transition::C; name::Symbol=:anonymous) where A where B where C = Model{A,B,C,name}(calibration, domain, transition)
+DModel(calibration::A, domain::B, grid::C, transition::D; name::Symbol=:anonymous) where A where B where C where D = DModel{A,B,C,D,name}(calibration, domain, grid, transition)
+
+name(::Model{A,B,C,N}) where A where B where  C where N = N
+name(::DModel{A,B,C,D,N}) where A where B where  C where D where N = N
+
+
 
 function recalibrate()
 end
@@ -21,7 +29,7 @@ import Base.show
 Base.show(io::IO, dmodel::DModel) = print(io, "DModel(#$(hash(typeof(dmodel))))")
 
 
-exo_transition(model::DModel{A,B,C}) where A where B where C = model.transition
+exo_transition(model::DModel) = model.transition
 
 import Base: merge
 function merge(a::SLArray, b::SLArray)
