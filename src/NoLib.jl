@@ -40,11 +40,8 @@ module NoLib
     include("hetag.jl")
     include("hetag_ss.jl")
     include("jac.jl")
+    include("gauss_elim.jl")
     include("space.jl")
-
-
-
-    include("plots.jl")
 
 end # module
 

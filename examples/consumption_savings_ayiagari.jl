@@ -75,6 +75,50 @@ plot!(kvec, kvec*0)
 
 
 ###
-### Sequential jacobian
+### Sequence-space jacobian
+
+J = NoLib.f_residuals(model, μ0, x0, y0; diff=true);
+
+## TEST Gauss elimination
+# NoLib.gauss_elimination_residuals(R, J)
+R = [μ0, x0, y0];
+
+function build_X(y, J)
+    T_x = J.F._x_1 \ J.F._x_2;
+
+    # If y contains only 1 element
+    if length(y) == 1
+        interm = NoLib.invert(J.F._y * SVector(y), T_x)
+        val = J.A._y * y + J.A._μ * NoLib.invert_G_μ(J.G._y * SVector(y), J.G._μ) + J.A._x * interm + J.A._μ * NoLib.invert_G_μ(J.G._x * interm, J.G._μ)
+        return cat(val; dims=2)
+    # If y has a higher dimension
+    else
+        X = Array{Any}(undef, length(y))
+        for (i, e) in enumerate(y)
+            interm = NoLib.invert(J.F._y * e, T_x);
+            val = J.A._y * e + J.A._μ * NoLib.invert_G_μ(J.G._y * e, J.G._μ) + J.A._x * interm + J.A._μ * NoLib.invert_G_μ(J.G._x * interm, J.G._μ)    
+            X[i] = val
+        end
+        X = cat(X; dims=2)
+        return X
+    end
+end
+
+rx = R[1];
+ry = R[2];
+rz = R[3];
+
+T_x = J.F._x_1 \ J.F._x_2;
+
+rx = NoLib.invert_G_μ(rx, J.G._μ);
+rz = rz - J.A._μ * rx;
+ry = NoLib.invert(ry, T_x);
+rz = rz - (J.A._x * ry) + J.A._μ * NoLib.invert_G_μ(J.G._x * ry, J.G._μ);
+X = build_X(rz, J);
+rz = inv(X) * rz;
+rz = SVector{1}(rz);
+ry = ry + NoLib.invert(J.F._y * rz, T_x);
+rx = rx + NoLib.invert_G_μ(J.G._y * rz, J.G._μ);
+rx = rx + NoLib.invert_G_μ(J.G._x * ry, J.G._μ);
 
 
