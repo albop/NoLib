@@ -7,8 +7,8 @@ module NoLib
     
     import LinearAlgebra: cross, norm, ×
 
-    include("interp.jl")
-    using NoLib.Interpolation: interp
+    include("splines/splines.jl")
+    using .splines: interp
     
     ⟂(a,b) = min(a,b)
     # ⟂ᶠ(a,b)
@@ -27,19 +27,21 @@ module NoLib
         SLVector( (merge(NamedTuple(a), b)) )
     end
 
+
     
     include("grids.jl")
     include("garray.jl")
     include("model.jl")
     include("simul.jl")
-    include("time_iteration.jl")
     include("funs.jl")
+    include("time_iteration.jl")
 
     # WIP heterogenous agents
     include("hetag.jl")
     include("hetag_ss.jl")
     include("jac.jl")
     include("gauss_elim.jl")
+    include("space.jl")
 
 end # module
 
