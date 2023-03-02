@@ -16,8 +16,6 @@ function CartesianSpace(;kwargs...)
     a = tuple((v[1] for v in values(kwargs))...)
     b = tuple((v[2] for v in values(kwargs))...)
     d = length(names)
-    println(names)
-    println(a,b)
     return CartesianSpace{d, Val{names}}(a,b)
 end
 

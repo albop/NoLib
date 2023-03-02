@@ -4,8 +4,9 @@ const NL=NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SSGrid, CGrid, PGrid, GArray, DModel
+using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid, GridSpace, CartesianSpace
 import NoLib: ×, ⟂
+using NoLib: DModel
 import NoLib: transition, arbitrage, recalibrate, initial_guess, projection, equilibrium
 
 
@@ -51,10 +52,24 @@ model = let
     n_m = 3
     mc = rouwenhorst(3,ρ,σ)
     
+
     P = convert(SMatrix{n_m, n_m}, mc.p)
     ## decide whether this should be matrix or smatrix
     Q = SVector( (SVector(w,r,e) for e in mc.state_values)... )
 
+    gm = GridSpace(
+        [Q[i] for i=1:size(Q,1)] 
+    )
+    gb =  CartesianSpace(;
+        k=[0.01, 100]
+    )
+
+
+    domain = GridSpace(
+        [Q[i] for i=1:size(Q,1)] 
+    )×CartesianSpace(;
+        k=[0.01, 100]
+    )
 
     grid = SSGrid(Q) × CGrid(((0.01,100.0,N),))
     
@@ -62,6 +77,7 @@ model = let
 
     DModel(
         (;m, s, x, y, z, p),
+        domain,
         grid,
         P
     )
@@ -103,8 +119,16 @@ function recalibrate(mod::typeof(model); K=mod.calibration.y.K, N=mod.calibratio
 
     grid = SSGrid(Q) × CGrid(((0.01,100.0,N_),))
     
+
+    domain = GridSpace(
+        [Q[i] for i=1:size(Q,1)] 
+    )×CartesianSpace(;
+        k=[0.01, 100]
+    )
+
     nmodel = DModel(
         (;m, s, x, y, z, p),
+        domain,
         grid,
         P
     )

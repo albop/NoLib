@@ -8,6 +8,7 @@ include("models/consumption_savings_ayiagari.jl")
 # check we can solve the model with default calibration
 
 @time sol = NoLib.time_iteration(model; verbose=true, improve=true, T=20)
+
 x0 = sol.solution
 μ0 = NoLib.ergodic_distribution(model, x0)
 
