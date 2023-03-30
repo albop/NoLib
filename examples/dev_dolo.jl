@@ -2,20 +2,12 @@ using NoLib
 
 import Dolo
 
-nolibmodel = include("models/rbc.jl")
-
-
-dolomodel = Dolo.Model("/home/pablo/.julia/dev/Dolo/examples/models/rbc_mc.yaml")
-
-@time NoLib.time_iteration(nolibmodel; improve=false, verbose=true)
-
-@time Dolo.time_iteration(dolomodel)
 
 module Temp
 
+    import Dolo
     import NoLib
     import NoLib: transition, arbitrage
-    import Dolo
     using StaticArrays
     using NoLib: CartesianSpace, GridSpace, ×, SSGrid, CGrid, LVectorLike
     using LabelledArrays
@@ -77,12 +69,7 @@ module Temp
     end
 
     function transition(model::DoDModel, m::SLArray, s::SLArray, x::SLArray, M::SLArray, p)
-        
-        v1 = SVector(m...)
-        v2  =SVector(s...) 
-        v3 =  SVector(x...)
-        v4 = SVector(M...)
-        v5 = SVector(p...)
+
 
         S = Dolo.transition(model.source, SVector(m...), SVector(s...), SVector(x...), SVector(M...), SVector(p...))
 
@@ -156,29 +143,15 @@ end
 import Main.Temp
 import Main.Temp: transition, arbitrage
 
-@time domodel = Main.Temp.DoDModel("/home/pablo/.julia/dev/Dolo/examples/models/rbc_mc.yaml");
+@time domodel = Main.Temp.DoDModel("examples/models/rbc_mc.yaml");
+nolibmodel = include("models/rbc.jl")
+dolomodel = Dolo.Model("examples/models/rbc_mc.yaml")
 
-(;m,s,x,p) = domodel.calibration
 
-NoLib.transition(domodel, m,s,x,m,p)
-
-import ForwardDiff
-
-g(u) = NoLib.transition(domodel, m,s,u,m,p)
-g(x)
-ForwardDiff.jacobian(
-    g,
-    x
-)
+@time sol_dolo = Dolo.time_iteration(dolomodel);
+@time sol_donolib = NoLib.time_iteration(domodel; improve=false, verbose=true);
+@time sol_nolib = NoLib.time_iteration(nolibmodel; improve=false, verbose=true);
 
 
 
-
-f(u)= NoLib.arbitrage(domodel, m,s,u,m,s,x,p)
-f(x)
-ForwardDiff.jacobian(
-    f,
-    x
-)
-
-NoLib.time_iteration(domodel)
+[domodel.grid...] - [nolibmodel.grid...]

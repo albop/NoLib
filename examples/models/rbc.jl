@@ -10,13 +10,13 @@ import NoLib: ×, DModel
 
 model = let
 	
-	β = 0.99
+	β = 0.9
 	σ = 5
 	η = 1
 	δ = 0.025
 	α = 0.33
 	ρ = 0.8
-	zbar = 0
+	zbar = 0.0
 	σ_z = 0.016
 	n = 0.33
 	z = zbar
@@ -45,7 +45,7 @@ model = let
     )
 
     exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
-    endo = CGrid( ((k*0.5, k*1.5, 200),) )
+    endo = CGrid( ((k*0.5, k*1.5, 20),) )
     grid = exo × endo
 
     DModel(

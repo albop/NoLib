@@ -45,10 +45,6 @@ end
 function LVectorLike(m0::SLArray{Tuple{d}, T, 1, d, M}, m) where d where T where M
     tt = eltype(m)
     TT = SLArray{Tuple{d}, tt, 1, d, M}
-
-    @show m0
-    @show m
-
     return TT(m...)
 end
 
@@ -59,6 +55,7 @@ function transition(model::ADModel, m, s, x, M, p)
     s = LVectorLike(model.calibration.s,s)
     x = LVectorLike(model.calibration.x,x)
     M = LVectorLike(model.calibration.m,M)
+    # p = LVectorLike(model.calibration.p,p)
     S = transition(model,m,s,x,M,p)
     return SVector(S...)
 end

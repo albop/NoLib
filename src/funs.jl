@@ -35,7 +35,7 @@ GridSpace(v::SVector{N, SVector{d, Float64}}) where d where N = GridSpace{length
 GridSpace(v::Vector{SVector{d, Float64}}) where d where N = GridSpace{length(v), d, Val{(:i_)}}(SVector(v...))
 
 ndims(gd::GridSpace{N,d,dims}) where N where d where dims = d
-ddims(gd::GridSpace{N,d,dims}) where N where d where dims<:Val{e} where e = begin println("JI"); e end
+ddims(gd::GridSpace{N,d,dims}) where N where d where dims<:Val{e} where e = e
 dims(gd::GridSpace) = ddims(gd)
 
 
@@ -72,8 +72,10 @@ DFun(domain, values, itp, vars) = DFun{typeof(domain), typeof(values), typeof(it
 function DFun(domain, values, itp)
     if eltype(values) <: Number
         vars = :y
-    elseif eltype(values) <: SVector && length(eltype(values)) == 1
+    elseif eltype(values) <: SVector # && length(eltype(values)) == 1
         vars = (:y,)
+    else
+        println(values)
     end
     return DFun(domain, values, itp, vars)
 end
@@ -107,7 +109,7 @@ function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G
 
 end
 
-function DFun(model::DModel, values::GVector{G,V}; interp_mode=:linear) where V where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid
+function DFun(model::ADModel, values::GVector{G,V}; interp_mode=:linear) where V where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid
 
     domain = model.domain
     
@@ -142,7 +144,6 @@ function (f::DFun{A,B,I,vars})(loc::Tuple{Tuple{Int64}, SVector{d2, U}})  where 
     dd1 = ndims(f.values.grid.g1)
     dd2 = ndims(f.values.grid.g2)
     x = SVector((x_[i] for i=(dd1+1):(dd1+dd2))...)
-    println(x)
     f.itp[loc[1][1]](x)
 end
 

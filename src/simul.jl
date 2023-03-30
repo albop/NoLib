@@ -2,7 +2,7 @@
 ### transition function
 
 
-function τ(model::DModel, ss::T, a::SVector) where T<:Tuple
+function τ(model::ADModel, ss::T, a::SVector) where T<:Tuple
 
 
     p = model.calibration.p
@@ -159,7 +159,10 @@ end
 
 ## TODO: some ways to plot the ergo dist...
 
-τ(model, ss::Tuple, φ) = τ(model, ss, φ(ss))
+τ(model, ss::Tuple, φ::DFun) = τ(model, ss, φ(ss))
+
+
+
 
 ## TODO: some simulation
 

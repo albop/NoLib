@@ -32,8 +32,8 @@ module NoLib
     include("grids.jl")
     include("garray.jl")
     include("model.jl")
-    include("simul.jl")
     include("funs.jl")
+    include("simul.jl")
     include("time_iteration.jl")
 
     # WIP heterogenous agents
