@@ -7,7 +7,22 @@ include("models/consumption_savings_ayiagari.jl")
 
 # check we can solve the model with default calibration
 
-@time sol = NoLib.time_iteration(model; verbose=true, improve=true, T=20)
+@time sol = NoLib.time_iteration_1(model; verbose=true);
+
+
+@time sol_it = NoLib.time_iteration(model; verbose=false, improve=false);
+@time sol_iti = NoLib.time_iteration(model; verbose=false, improve=true);
+
+
+
+
+@time sol = NoLib.time_iteration(model; verbose=false, improve=false);
+@time sol = NoLib.time_iteration(model; verbose=false, improve=false, interp_mode=:cubic);
+
+
+@time sol = NoLib.time_iteration(model; verbose=true, improve=true, T=20);
+
+@time sol = NoLib.time_iteration(model; verbose=false, improve=true, T=20, interp_mode=:cubic);
 
 x0 = sol.solution
 μ0 = NoLib.ergodic_distribution(model, x0)
@@ -42,7 +57,7 @@ y0 = model.calibration.y
 ### visualize equilibrium
 
 # plot residuals
-kvec = range(30, 60; length=20)
+kvec = range(30, 80; length=20)
 rvec = []
 
 @time NoLib.ss_residual(model, SVector(41.0); diff=true, x0=sol.solution)

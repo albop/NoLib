@@ -123,11 +123,13 @@ import Base: iterate
 iterate(s::SGrid) = (s.points[1], 2)
 iterate(s::SGrid, state) = state<=length(s) ? (s.points[state], state+1) : nothing
 
+lastindex(s::CGrid{1}) = length(s)
+
 getindex(s::CGrid{1}, i::Int) = let
     a = s.ranges[1][1]
     b = s.ranges[1][2]
     n = length(s)
-    SVector(a + i/(n-1) * (b-a))
+    SVector(a + (i-1)/(n-1) * (b-a))
 end
 
 length(s::CGrid{1}) = s.ranges[1][3]
@@ -136,7 +138,7 @@ iterate(s::CGrid{1}, state) = state<length(s) ? let
     a = s.ranges[1][1]
     b = s.ranges[1][2]
     n = length(s)
-    (SVector(a + state/(n-1) * (b-a)), state+1)
+    (SVector(a + (state-1)/(n-1) * (b-a)), state+1)
 end : nothing
 
 

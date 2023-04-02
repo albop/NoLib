@@ -79,6 +79,6 @@ options:
 
     discretization:
         endo:
-            n: [10]
+            n: [200]
 
     # interpolation: spline

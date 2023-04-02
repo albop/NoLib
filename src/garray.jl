@@ -13,6 +13,10 @@ GDist(g::G, v::Vector{Float64}) where G= GArray{G,Vector{Float64}}(g, v)
 
 norm(v::GArray) = maximum(u->maximum(abs, u), v.data)
 
+
+distance(v::SVector, v::SVector) maximum(abs(u-v) for (u,v) in zip(u.data, v.data))
+distance(u::GArray, v::GArray) = maximum(distance(u,v) for (u,v) in zip(u.data, v.data))
+
 import Base: size
 size(a::GArray{PGrid{G1, G2, d}, T}) where G1 where G2 where d where T = (length(a.grid.g1), length(a.grid.g2))
 

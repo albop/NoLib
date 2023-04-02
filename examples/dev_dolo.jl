@@ -107,9 +107,7 @@ module Temp
         P = SMatrix{p2,q2}(source.exogenous.transitions)
 
         (;states, min, max) = source.domain
-
         aargs = (states[i]=>(min[i],max[i]) for i in eachindex(states))
-
         gpsce = GridSpace( points  )
         cspace = CartesianSpace(; aargs... )
 
@@ -122,8 +120,9 @@ module Temp
         end
 
 
-        # dp, pg = Dolo.discretize(dolomodel)
-        egrid = Dolo.discretize(source.domain)
+        pg,dp = Dolo.discretize(source)
+        
+        egrid = pg.endo
 
         exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
         
@@ -138,6 +137,25 @@ module Temp
         # transition
     end
 
+    function recalibrate(model::DoDModel; args...)
+        # TODO: check that the following are updated
+        # - exogenous
+        # - transition
+        # - grid
+        source = model.source
+        calib = Dolo.get_calibration(model.source; args...)
+        domain = Dolo.get_domain(model.source; calibration=calib)
+        m = SLVector(; (v=>calib.flat[v] for v in source.symbols[:exogenous])...) 
+        s = SLVector(; (v=>calib.flat[v] for v in source.symbols[:states])...) 
+        x = SLVector(; (v=>calib.flat[v] for v in source.symbols[:controls])...) 
+        p = SLVector(; (v=>calib.flat[v] for v in source.symbols[:parameters])...) 
+        calibration = (;m, s, x, p,)
+        grid = model.grid
+        P = model.transition
+        name = NoLib.name(model)
+        return DoDModel{ typeof(calibration), typeof(domain), typeof(grid), typeof(P), typeof(source), Val(name)}(calibration, domain, grid, model.transition, model.source)
+    end
+
 end
 
 import Main.Temp
@@ -148,10 +166,54 @@ nolibmodel = include("models/rbc.jl")
 dolomodel = Dolo.Model("examples/models/rbc_mc.yaml")
 
 
-@time sol_dolo = Dolo.time_iteration(dolomodel);
-@time sol_donolib = NoLib.time_iteration(domodel; improve=false, verbose=true);
-@time sol_nolib = NoLib.time_iteration(nolibmodel; improve=false, verbose=true);
+@time sol_dolo = Dolo.time_iteration(dolomodel, verbose=true);
+
+@time sol_donolib_l = NoLib.time_iteration(domodel; improve=false, verbose=false, interp_mode=:linear);
+@time sol_nolib_l = NoLib.time_iteration(nolibmodel; improve=false, verbose=true, interp_mode=:linear);
+
+@time sol_donolib_c = NoLib.time_iteration(domodel; improve=false, verbose=true, interp_mode=:cubic);
+@time sol_nolib_c = NoLib.time_iteration(nolibmodel; improve=false, verbose=true, interp_mode=:cubic);
 
 
 
-[domodel.grid...] - [nolibmodel.grid...]
+@time sol_donolib_l = NoLib.time_iteration(domodel; improve=true, verbose=true, interp_mode=:linear);
+@time sol_nolib_l = NoLib.time_iteration(nolibmodel; improve=true, verbose=true, interp_mode=:linear);
+
+# @time sol_donolib_c = NoLib.time_iteration(domodel; improve=false, verbose=true, interp_mode=:cubic);
+# @time sol_nolib_c = NoLib.time_iteration(nolibmodel; improve=true, verbose=true, interp_mode=:cubic);
+
+using Plots
+
+φ_d = sol_dolo.dr
+
+φ_l = sol_nolib_l.dr
+φ_c = sol_nolib_c.dr
+
+
+
+kvec = range(model.domain.spaces[2].min[1], model.domain.spaces[2].max[1];length=1000)
+
+kg = [s[2] for s in model.grid]
+
+v_l = [φ_l(2,SVector(s[2])) for s in model.grid]
+v_c = [φ_c(2,SVector(s[2])) for s in model.grid]
+
+vals_l = [φ_l(2,SVector(k)) for k in kvec]
+vals_c = [φ_c(2,SVector(k)) for k in kvec]
+
+
+using Plots
+
+pl = plot()
+scatter!(pl, kg, [v[1] for v in v_l])
+scatter!(pl, kg, [v[1] for v in v_c])
+plot!(pl, kvec, [v[1] for v in vals_l])
+plot!(pl, kvec, [v[1] for v in vals_c])
+
+
+
+
+vals_d = [φ_d(2,SVector(s[2])) for (i,s) in NoLib.enum(model.grid)]
+
+vals_l = [φ_l(2,SVector(s[2])) for (i,s) in NoLib.enum(model.grid)]
+vals_c = [φ_c(2,SVector(s[2])) for (i,s) in NoLib.enum(model.grid)]

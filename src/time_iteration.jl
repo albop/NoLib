@@ -6,14 +6,14 @@ F(model, s, x::SVector, φ::DFun) =
 
 
 
-F(model, s, x::SVector, φ::GArray) = 
+F(model, s, x::SVector, φ::Union{GArray, DFun}) = 
     sum(
          w*arbitrage(model,s,x,S,φ(S)) 
          for (w,S) in τ(model, s, x)
     )
 
 
-F(model, controls::GArray, φ::GArray) =
+F(model, controls::GArray, φ::Union{GArray, DFun}) =
     GArray(
         model.grid,
         [
@@ -42,7 +42,7 @@ end
 ## no alloc
 dF_1(model, s, x, φ) = ForwardDiff.jacobian(u->F(model, s, u, φ), x)
 
-dF_1(model, controls::GArray, φ::GArray) =
+dF_1(model, controls::GArray, φ::Union{GArray, DFun}) =
     GArray(    # this shouldn't be needed
         model.grid,
         [
@@ -51,7 +51,7 @@ dF_1(model, controls::GArray, φ::GArray) =
         ]
     )
 
-function dF_1!(out, model, controls::GArray, φ::GArray)
+function dF_1!(out, model, controls::GArray, φ::Union{GArray, DFun})
     for (n, (s,x)) in enumerate(zip(enum(model.grid), controls))
         out[n] = ForwardDiff.jacobian(u->F(model, s, u, φ), x)
     end
@@ -92,7 +92,6 @@ function time_iteration_1(model;
     tol_ε=1e-8,
     tol_η=1e-6,
     verbose=false,
-    exo=e0
 )
 
     N = length(model.grid)
@@ -105,13 +104,13 @@ function time_iteration_1(model;
 
     for t=1:T
 
-        r0 = F(model, x0, x0, e0, e0)
+        r0 = F(model, x0, x0)
         ε = norm(r0)
 
         if ε<tol_ε
             return (;message="Solution found", solution=x0, n_iterations=t)
         end
-
+        println("Iteration $t: $ε")
         if verbose
             println("ϵ=$(ε)")
         end
@@ -130,7 +129,7 @@ function time_iteration_1(model;
             
             x1.data .-= dx.data
 
-            verbose ? println("Iteration $t: $η") : nothing
+            verbose ? println(" - $k: $η") : nothing
 
             if η<tol_η
                 break
@@ -209,7 +208,8 @@ function time_iteration(model;
     tol_η=1e-8,
     verbose=false,
     improve=true,
-    x0=nothing
+    x0=nothing,
+    interp_mode=:linear
 )
 
     N = length(model.grid)
@@ -218,6 +218,8 @@ function time_iteration(model;
     else
         x0 = deepcopy(x0)
     end
+    # x0 = GArray(model.grid, [SVector(model.calibration.x) for n=1:N])
+
     x1 = deepcopy(x0)
 
     # local x0
@@ -227,30 +229,43 @@ function time_iteration(model;
 
     for t=1:T
 
-        function fun(u::AbstractVector{Float64})
-            x = unravel(x0, u)
-            r = F(model, x, x0)
-            return ravel(r)
+        φ = DFun(model, x0; interp_mode=interp_mode)
+
+        r0 = F(model, x0, φ)
+        ε = norm(r0)
+
+        if ε<tol_ε
+            return (;message="Solution found", solution=x0, n_iterations=t)
         end
 
-        function dfun(u::AbstractVector{Float64})
-            x = unravel(x0, u)
-            dr = dF_1(model, x, x0)
-            J = convert(Matrix,dr)
-            return J
-        end
-
-        u0 = ravel(x0)
-        sol = nlsolve(fun, dfun, u0)
-        u1 = sol.zero
-
-        ε = maximum(abs, fun(u1))
-        η = maximum(u->abs(u[1]-u[2]), zip(u0,u1))
+        # φ = x0
+        x1.data .= x0.data
         
-        x1 = unravel(x0, u1)
+        for k=1:K
+
+            r1 = F(model, x1, φ)
+            J = dF_1(model, x1, φ)
+            # dF!(J, model, x1, x0)
+
+            dx = GArray(model.grid, J.data .\ r1.data)
+
+            η = norm(dx)
+            
+            x1.data .-= dx.data
+
+            verbose ? println(" - $k: $η") : nothing
+
+            if η<tol_η
+                break
+            end
+
+        end
+
+        # ε = norm(F(model, x1, φ))
+        η = distance(x1,x0)
 
         if !(improve)
-            x0 = x1
+            x0.data[:] = x1.data[:]
         else
             # x = T(x)
             # xnn = T(xn)
@@ -260,7 +275,7 @@ function time_iteration(model;
 
             # # this version assumes same number of shocks
 
-            J_1 = NoLib.dF_1(model, x1, x0)
+            J_1 = NoLib.dF_1(model, x1, φ)
             J_2 =  NoLib.dF_2(model, x1, x0)
             J_2.M_ij[:] *= -1.0
             Tp = J_1 \ J_2
@@ -274,7 +289,7 @@ function time_iteration(model;
         verbose ? println("Iteration $t : $η : $ε") : nothing
 
         if η<tol_η
-            return (;solution=x0, message="Convergence", n_iterations=t)
+            return (;solution=x0, dr=φ, message="Convergence", n_iterations=t)
         end
 
     end
@@ -282,7 +297,6 @@ function time_iteration(model;
     return (;solution=x0, message="No Convergence", n_iterations=T)
 
 end
-
 
 
 # function time_iteration(model;

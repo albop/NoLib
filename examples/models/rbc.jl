@@ -44,8 +44,9 @@ model = let
         k=[k*0.5, k*1.5]
     )
 
+	N = 200
     exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
-    endo = CGrid( ((k*0.5, k*1.5, 20),) )
+    endo = CGrid( ((k*0.5, k*1.5, N),) )
     grid = exo × endo
 
     DModel(

@@ -104,7 +104,7 @@ function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G
 
     # TODO: check values.data[i,:]
     sz = (e[3] for e in values.grid.g2.ranges)
-    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=3)  for i=1:length(values.grid.g1)  )...)
+    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=k)  for i=1:length(values.grid.g1)  )...)
     return DFun(domain, values, itps)
 
 end
@@ -123,7 +123,7 @@ function DFun(model::ADModel, values::GVector{G,V}; interp_mode=:linear) where V
 
     # TODO: check values.data[i,:]
     sz = (e[3] for e in values.grid.g2.ranges)
-    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=3)  for i=1:length(values.grid.g1)  )...)
+    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=k)  for i=1:length(values.grid.g1)  )...)
     return DFun(domain, values, itps)
 
 end
