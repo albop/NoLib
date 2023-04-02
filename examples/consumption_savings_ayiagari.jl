@@ -7,22 +7,20 @@ include("models/consumption_savings_ayiagari.jl")
 
 # check we can solve the model with default calibration
 
-@time sol = NoLib.time_iteration_1(model; verbose=true);
+@time sol_1 = NoLib.time_iteration_1(model; verbose=true);
+
+@time sol_4 = NoLib.time_iteration_4(model; verbose=true, improve=false);
+
+@time sol_it = NoLib.time_iteration(model; verbose=true, improve=false);
+@time sol_iti = NoLib.time_iteration(model; verbose=true, improve=true);
 
 
-@time sol_it = NoLib.time_iteration(model; verbose=false, improve=false);
-@time sol_iti = NoLib.time_iteration(model; verbose=false, improve=true);
+mem = NoLib.time_iteration_workspace(model)
+@time sol = NoLib.time_iteration_4(model, mem; verbose=false, improve=false, T=15);
+@time sol_iti = NoLib.time_iteration_4(model, mem; verbose=true, improve=true);
 
 
-
-
-@time sol = NoLib.time_iteration(model; verbose=false, improve=false);
-@time sol = NoLib.time_iteration(model; verbose=false, improve=false, interp_mode=:cubic);
-
-
-@time sol = NoLib.time_iteration(model; verbose=true, improve=true, T=20);
-
-@time sol = NoLib.time_iteration(model; verbose=false, improve=true, T=20, interp_mode=:cubic);
+sol = sol_4
 
 x0 = sol.solution
 μ0 = NoLib.ergodic_distribution(model, x0)

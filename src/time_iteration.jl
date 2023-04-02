@@ -102,15 +102,17 @@ function time_iteration_1(model;
     local x1
     local t
 
+
     for t=1:T
 
         r0 = F(model, x0, x0)
+
         ε = norm(r0)
 
         if ε<tol_ε
             return (;message="Solution found", solution=x0, n_iterations=t)
         end
-        println("Iteration $t: $ε")
+        # println("Iteration $t: $ε")
         if verbose
             println("ϵ=$(ε)")
         end
@@ -280,7 +282,7 @@ function time_iteration(model;
             J_2.M_ij[:] *= -1.0
             Tp = J_1 \ J_2
             r = x1 - Tp * x0
-            x0 = invert(r, Tp; K=1000)
+            x0 = invert(r, Tp; K=500)
 
         end
         
@@ -295,6 +297,105 @@ function time_iteration(model;
     end
 
     return (;solution=x0, message="No Convergence", n_iterations=T)
+
+end
+
+
+function time_iteration_workspace(model)
+
+    x0 = NoLib.initial_guess(model)
+    x1 = deepcopy(x0)
+    r0 = deepcopy(x0)
+    dx = deepcopy(x0)
+    N = length(dx)
+    n = length(dx.data[1])
+    J = GArray(
+        model.grid,
+        zeros(SMatrix{n,n,Float64,n*n}, N)
+    )
+    return (;x0, x1, r0, dx, J)
+end
+
+
+function time_iteration_4(model, workspace=time_iteration_workspace(model);
+    T=500,
+    K=10,
+    tol_ε=1e-8,
+    tol_η=1e-6,
+    verbose=false,
+    improve=false,
+    x0_ = nothing,
+    interp_mode=:linear
+
+)
+
+    # mem = typeof(workspace) <: Nothing ? time_iteration_workspace(model) : workspace
+
+    (;x0, x1, r0, dx, J) = workspace
+
+    # φ = DFun(model, x0; interp_mode=interp_mode)
+    φ = x0 # TODO
+
+    for t=1:T
+        
+        # NoLib.fit!(φ, x0)
+
+        F!(r0, model, x0, φ)
+        # r0 = F(model, x0, φ)
+
+        ε = norm(r0)
+
+        if ε<tol_ε
+            return (;message="Solution found", solution=x0, n_iterations=t)
+        end
+
+        # solve u->F(u,x0) 
+        # result in x1
+        # J and r0 are modified
+
+        for k=1:K
+
+            F!(r0, model, x1, x0)
+            # r0 = F(model, x1, x0)
+
+            ε_n = norm(r0)
+            if ε_n<tol_ε
+                break
+            end
+
+            dF_1!(J, model, x1, x0)
+            # J = dF_1(model, x1, x0)
+
+            x1.data .-= J.data .\ r0.data
+
+        end
+
+        η = distance(x0, x1)
+        verbose ? println("$t: $ε : $η: ") : nothing
+
+        if !(improve)
+            x0.data .= x1.data
+        else
+            # x = T(x)
+            # x1 = T(x0)
+            # x - x1 = -T'(x) (x - x0)
+            # x = x1 - T' (x - x0)
+            # x = (I-T')\(x1 - T' x0)
+
+            J_1 = NoLib.dF_1(model, x1, x0)
+            J_2 =  NoLib.dF_2(model, x1, x0)
+            J_2.M_ij[:] *= -1.0
+            Tp = J_1 \ J_2
+            r = x1 - Tp * x0
+            x0 = invert(r, Tp; K=500)
+            x1.data .= x0.data
+
+        end
+
+
+    end
+
+    # return (;solution=x0, message="No Convergence") # The only allocation when workspace is preallocated
 
 end
 

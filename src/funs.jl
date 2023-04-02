@@ -128,6 +128,10 @@ function DFun(model::ADModel, values::GVector{G,V}; interp_mode=:linear) where V
 
 end
 
+function fit!(φ::DFun, values)
+    φ.itp
+end
+
 ## Cart
 function (f::DFun{A,B,I,vars})(x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I where G<:CGrid where vars where d2 where U
     f.itp(x)
