@@ -93,22 +93,6 @@ function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G
     return DFun(domain, values, itp)
 end
 
-function DFun(domain, values::GVector{G,V}; interp_mode=:linear) where V where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid
-    if interp_mode == :linear
-        k=1
-    elseif interp_mode == :cubic
-        k=3
-    else
-        throw("Unkown interpolation mode $(interp_mode)")
-    end
-
-    # TODO: check values.data[i,:]
-    sz = (e[3] for e in values.grid.g2.ranges)
-    itps = tuple( (SplineInterpolator(values.grid.g2.ranges;  values=reshape(values[i,:], sz...),k=k)  for i=1:length(values.grid.g1)  )...)
-    return DFun(domain, values, itps)
-
-end
-
 function DFun(model::ADModel, values::GVector{G,V}; interp_mode=:linear) where V where G<:PGrid{G1,G2} where G1<:SGrid where G2<:CGrid
 
     domain = model.domain
@@ -129,12 +113,19 @@ function DFun(model::ADModel, values::GVector{G,V}; interp_mode=:linear) where V
 end
 
 function fit!(φ::DFun, values)
-    φ.itp
-end
 
-## Cart
-function (f::DFun{A,B,I,vars})(x::SVector{d2, U})  where A where B<:GArray{G,V} where V where I where G<:CGrid where vars where d2 where U
-    f.itp(x)
+    # domain = φ.domain
+    
+    # TODO: this works only for linear interpolator
+    k=1
+
+    # TODO: check values.data[i,:]
+    sz = (e[3] for e in values.grid.g2.ranges)
+    
+    for i=1:length( φ.itp)
+        splines.fit!(φ.itp[i], reshape(values[i,:], sz...))
+    end
+
 end
 
 ## PGrid
