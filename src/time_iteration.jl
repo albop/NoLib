@@ -169,13 +169,13 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
             # x = x1 - T' (x - x0)
             # x = (I-T')\(x1 - T' x0)
 
-            J_1 = NoLib.dF_1(model, x1, x0)
-            J_2 =  NoLib.dF_2(model, x1, x0)
+            J_1 = NoLib.dF_1(model, x1, φ)
+            J_2 =  NoLib.dF_2(model, x1, φ)
             J_2.M_ij[:] *= -1.0
             Tp = J_1 \ J_2
             r = x1 - Tp * x0
 
-            x0 = invert(r, Tp; K=500)
+            x0 = neumann(Tp, r; K=1000)
             x1.data .= x0.data
 
         end

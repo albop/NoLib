@@ -1,12 +1,17 @@
 import Base: *
 
-struct LF{G, T, n_s}
+struct LF{G, T, F,n_s}
     grid::G
     M_ij::Matrix{T}
     S_ij::Matrix{Tuple{Tuple{Int64}, SVector{n_s, Float64}}}
+    φ::F
 end
 
-function dF_2(model, x::GArray, φ::GArray )
+
+import Base: /,*
+import LinearAlgebra: mul!
+
+function dF_2(model, x::GArray, φ::DFun )
     res = []
     for (s,x) in zip(enum(model.grid), x)
         l = []
@@ -27,13 +32,17 @@ function dF_2(model, x::GArray, φ::GArray )
             S_ij[n,j] = res[n][j][2]
         end
     end
-    return LF(model.grid, M_ij, S_ij)
+    return LF(model.grid, M_ij, S_ij, deepcopy(φ))
+    # return LF(model.grid, M_ij, S_ij)
 end
 
 
-function apply_L_2!(dr, L2, dφ)
+
+function mul!(dr, L2, x)
     (;M_ij, S_ij) = L2
     N,K = size(M_ij)
+    dφ = L2.φ
+    fit!(L2.φ, x)
     for n=1:N
         t0 = dr[n]*0.0
         for k=1:K
@@ -45,27 +54,16 @@ function apply_L_2!(dr, L2, dφ)
     end
 end
 
-function apply_L_2(L2, dφ)
-    dr = deepcopy(dφ)
-    apply_L_2!(dr, L2, dφ)
-    return dr
-end
 
-# function invert!(dx, dr, L2, dφ; K=1000)
-#     # modifies dx and dr
-#     for k=1:K
-#         dx.data .+= dr.data
-#         apply_L_2!(dr, L2, dφ)
-#     end
-# end
+function neumann(L2::LF, r0; K=1000, τ_η=1e-10)
+    
+    φ = L2.φ
+    dx = deepcopy(r0)
+    du = deepcopy(r0)
+    dv = deepcopy(r0)
 
-
-function invert(dr, L2; K=1000, τ_η=1e-10)
-    dx = deepcopy(dr)
-    du = deepcopy(dr)
-    dv = deepcopy(dr)
     for k=1:K
-        apply_L_2!(du, L2, dv)
+        mul!(du, L2, dv)
         dx.data .+= du.data
         η = norm(du)
         if η<τ_η
@@ -76,14 +74,17 @@ function invert(dr, L2; K=1000, τ_η=1e-10)
     return dx
 end
 
-import Base: /,*
-import LinearAlgebra: mul!
 
-*(L::LF, x0) = apply_L_2( L, x0)
-mul!(y0, L::LF, x0) = apply_L_2!(y0, L, x0)
 
-\(J, L::LF) = LF(L.grid, J.data .\ L.M_ij, L.S_ij)
-\(L::LF, r) = invert(r, L)
+function *(L::LF, x0)
+    r = deepcopy(x0)
+    r.data .= r.data .* 0.0
+    mul!(r, L, x0)
+    return r
+end
+
+\(J, L::LF) = LF(L.grid, J.data .\ L.M_ij, L.S_ij, L.φ)
+# \(L::LF, r_) = solve(L, r_)
 
 using LinearMaps
 using BlockDiagonals
