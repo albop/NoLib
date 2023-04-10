@@ -112,18 +112,16 @@ function DFun(model::ADModel, values::GVector{G,V}; interp_mode=:linear) where V
 
 end
 
-function fit!(φ::DFun, values)
+function fit!(φ::DFun, x::GVector)
 
-    # domain = φ.domain
-    
-    # TODO: this works only for linear interpolator
-    k=1
+    # This is only for SGrid x CGrid
 
-    # TODO: check values.data[i,:]
-    sz = (e[3] for e in values.grid.g2.ranges)
-    
+    n_m = length(x.grid.g1)
+    sz = tuple(n_m, (e[3] for e in x.grid.g2.ranges)...)    
+    xx = reshape( view(x.data, :), sz...)
     for i=1:length( φ.itp)
-        splines.fit!(φ.itp[i], reshape(values[i,:], sz...))
+        vv = view( xx, i, :)
+        splines.fit!(φ.itp[i], vv)
     end
 
 end

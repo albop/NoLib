@@ -72,11 +72,15 @@ end
 
 function prefilter!(data::AbstractVector{T}) where T
 
+    # TODO: find a way to avoid allocation
+
     # data is 1d array of length M
     # data is 1d array of length M+2
     M = length(data) - 2
     bands = zeros(M+2, 3)
+    
     bb = zeros(T, M+2)
+
     fill_bands!(M, bands, bb, data)
     prefilter!(data, bands, bb)
 

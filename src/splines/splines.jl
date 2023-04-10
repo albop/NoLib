@@ -65,7 +65,7 @@ end
 
 
     function prefilter!(θ::AbstractArray{T, d}, grid::NTuple{d,Tuple{Float64,Float64,i}}, V::AbstractArray{T, d}, ::Val{1}) where d where i<:Int where T
-        θ[:] = V
+        θ .= V
     end
 
     function CubicInterpolator(grid; values=nothing)
@@ -86,7 +86,7 @@ end
     function fit!(spl::SplineInterpolator{G,C,k}, values) where G where C where k
 
         # grid = spl.grid
-        n = [e[3] for e in spl.grid]
+        # n = [e[3] for e in spl.grid]
         if k==3
             fill!(spl.θ, zero(eltype(spl.θ)))
             ind = tuple( (2:(e[3]+1) for e in spl.grid )...)
