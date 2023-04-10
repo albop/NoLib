@@ -1,4 +1,4 @@
-function solve_coefficients!(
+@inline function solve_coefficients!(
             bands::AbstractMatrix{Float64},
             bb::AbstractVector{T},
             coefs::AbstractVector{T}
@@ -50,115 +50,118 @@ function solve_coefficients!(
 
 end
 
-function fill_bands!(M::Int, bands::AbstractMatrix, bb::AbstractVector{T}, data::AbstractVector{T}) where T
+@inline function fill_bands!(M::Int, bands::AbstractMatrix, bb::AbstractVector{T}, data::AbstractVector{T}) where T
 
     # boundary conditions
-    bands[1, 1] = 1.0
-    bands[1, 2] = -2.0
-    bands[1, 3] = 1.0
-    bands[M+2, 1] = 1.0
-    bands[M+2, 2] = -2.0
-    bands[M+2, 3] = 1.0
+    @inbounds bands[1, 1] = 1.0
+    @inbounds bands[1, 2] = -2.0
+    @inbounds bands[1, 3] = 1.0
+    @inbounds bands[M+2, 1] = 1.0
+    @inbounds bands[M+2, 2] = -2.0
+    @inbounds bands[M+2, 3] = 1.0
 
-    bands[2:end-1,1] .= 1.0/6.0
-    bands[2:end-1,2] .= 2.0/3.0
-    bands[2:end-1,3] .= 1.0/6.0
+    for k=2:M+1
+        @inbounds bands[k,1] = 1.0/6.0
+        @inbounds bands[k,2] = 2.0/3.0
+        @inbounds bands[k,3] = 1.0/6.0
+    end
 
-    bb[:] = data[:]
-    bb[1] = zero(T)
-    bb[M+2] = zero(T)
+    @inbounds bb .= data
+    @inbounds bb[1] = zero(T)
+    @inbounds bb[M+2] = zero(T)
 
 end
+
+
+# TODO: there are certainly some cases where we don't want MVectors there
 
 function prefilter!(data::AbstractVector{T}) where T
 
-    # TODO: find a way to avoid allocation
+    N = length(data)
 
-    # data is 1d array of length M
-    # data is 1d array of length M+2
-    M = length(data) - 2
-    bands = zeros(M+2, 3)
-    
-    bb = zeros(T, M+2)
+    bands = zero(MMatrix{N, 3, Float64, N*3})
+    bb = zero(MVector{N, T})
 
-    fill_bands!(M, bands, bb, data)
-    prefilter!(data, bands, bb)
-
-end
-
-function prefilter!(data, bands, bb)
-
-    M = length(data) - 2
-    fill_bands!(M, bands, bb, data)
+    fill_bands!(N-2, bands, bb, data)
     solve_coefficients!(bands, bb, data)
 
 end
 
 
+# function prefilter!(data::AbstractVector{T}) where T
 
-function prefilter!(data::Array{T,1}) where T
-    M = size(data,1)-2
-    bands = zeros(M+2,3)
-    bb = zeros(T,M+2)
-    fill_bands!(M, bands, bb, data)
-    prefilter!(data, bands, bb)
-end
+#     # TODO: find a way to avoid allocation
 
-function prefilter!(data::Array{T,2}) where T
+#     # data is 1d array of length M
+#     # data is 1d array of length M+2
+#     M = length(data) - 2
+#     bands = zeros(M+2, 3)
+    
+#     bb = zeros(T, M+2)
+
+#     # fill_bands!(M, bands, bb, data)
+#     prefilter!(data, bands, bb)
+
+# end
+
+# function prefilter!(data, bands, bb)
+
+#     M = length(data) - 2
+#     fill_bands!(M, bands, bb, data)
+#     solve_coefficients!(bands, bb, data)
+
+# end
+
+
+
+# function prefilter!(data::Array{T,1}) where T
+#     M = size(data,1)-2
+#     bands = zeros(M+2,3)
+#     bb = zeros(T,M+2)
+#     fill_bands!(M, bands, bb, data)
+#     prefilter!(data, bands, bb)
+# end
+
+function prefilter!(data::AbstractArray{T,2}) where T
+
     I,J = size(data)
 
     M = J-2
-    bands = zeros(M+2,3)
-    bb = zeros(T,M+2)
     for i=1:I
-            dat = view(data, i, :)
-            # prefilter!(dat)
-            fill_bands!(M, bands, bb, dat)
-            prefilter!(dat, bands, bb)
+        dat = view(data, i, :)
+        prefilter!(dat)
     end
+
     M = I-2
-    bands = zeros(M+2, 3)
-    bb = zeros(T,M+2)
     for j=1:J
         dat = view(data, :, j)
-        # prefilter!(dat)
-        #
-        fill_bands!(M, bands, bb, dat)
-        prefilter!(dat, bands, bb)
+        prefilter!(dat)
     end
 end
 
 function prefilter!(data::Array{T,3}) where T
+
     I,J,K = size(data)
 
     M = K-2
-    bands = zeros(M+2,3)
-    bb = zeros(T,M+2)
     for i=1:I
         for j=1:J
             dat = view(data, i,j, :)
-            fill_bands!(M, bands, bb, dat)
-            prefilter!(dat, bands, bb)
+            prefilter!(dat)
         end
     end
     M = J-2
-    bands = zeros(M+2, 3)
-    bb = zeros(T,M+2)
     for i=1:I
         for k=1:K
             dat = view(data, i,:, k)
-            fill_bands!(M, bands, bb, dat)
-            prefilter!(dat, bands, bb)
+            prefilter!(dat)
         end
     end
     M = I-2
-    bands = zeros(M+2, 3)
-    bb = zeros(T,M+2)
     for j=1:J
         for k=1:K
-            dat = view(data, :, j,k)
-            fill_bands!(M, bands, bb, dat)
-            prefilter!(dat, bands, bb)
+            dat = view(data, : ,j, k)
+            prefilter!(dat)
         end
     end
 end
@@ -168,50 +171,39 @@ function prefilter!(data::Array{T,4}) where T
     I,J,K,L = size(data)
 
     M = L-2
-    bands = zeros(M+2,3)
-    bb = zeros(T,M+2)
+
     for i=1:I
         for j=1:J
             for k=1:K
                 dat = view(data,i,j,k,:)
-                fill_bands!(M, bands, bb, dat)
-                prefilter!(dat, bands, bb)
+                prefilter!(dat)
             end
         end
     end
     M = K-2
-    bands = zeros(M+2,3)
-    bb = zeros(T,M+2)
     for i=1:I
         for j=1:J
             for l=1:L
                 dat = view(data,i,j,:,l)
-                fill_bands!(M, bands, bb, dat)
-                prefilter!(dat, bands, bb)
+                prefilter!(dat)
             end
         end
     end
     M = J-2
-    bands = zeros(M+2, 3)
-    bb = zeros(T,M+2)
     for i=1:I
         for k=1:K
             for l=1:L
                 dat = view(data, i,:, k,l)
-                fill_bands!(M, bands, bb, dat)
-                prefilter!(dat, bands, bb)
+                prefilter!(dat)
             end
         end
     end
     M = I-2
-    bands = zeros(M+2, 3)
-    bb = zeros(T,M+2)
     for j=1:J
         for k=1:K
             for l=1:L
                 dat = view(data, :, j,k,l)
-                fill_bands!(M, bands, bb, dat)
-                prefilter!(dat, bands, bb)
+                prefilter!(dat)
             end
         end
     end

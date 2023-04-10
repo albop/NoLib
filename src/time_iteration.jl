@@ -89,6 +89,7 @@ function time_iteration_workspace(model; interp_mode=:linear)
 
     x0 = (NoLib.initial_guess(model))
     x1 = deepcopy(x0)
+    x2 = deepcopy(x0)
     r0 = deepcopy(x0)
     dx = deepcopy(x0)
     N = length(dx)
@@ -98,17 +99,19 @@ function time_iteration_workspace(model; interp_mode=:linear)
         zeros(SMatrix{n,n,Float64,n*n}, N)
     )
     φ = DFun(model, x0; interp_mode=interp_mode)
-    return (;x0, x1, r0, dx, J, φ)
+    return (;x0, x1, x2, r0, dx, J, φ)
 end
 
 
 function time_iteration(model, workspace=time_iteration_workspace(model);
-    T=500, K=10, tol_ε=1e-8, tol_η=1e-6, verbose=false, improve=false, x0_ = nothing, interp_mode=:cubic
+    T=500, K=10, tol_ε=1e-8, tol_η=1e-6, verbose=false, improve=false, interp_mode=:cubic
     )
 
     # mem = typeof(workspace) <: Nothing ? time_iteration_workspace(model) : workspace
+    mbsteps = 5
+    lam = 0.5
 
-    (;x0, x1, r0, J, φ) = workspace
+    (;x0, x1, x2, dx, r0, J, φ) = workspace
 
     for t=1:T
         
@@ -127,10 +130,11 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
         # result in x1
         # J and r0 are modified
 
+        x1.data .= x0.data
+
         for k=1:10
 
             F!(r0, model, x1,  φ)
-            # r0 = F(model, x1, x0)
 
             ε_n = norm(r0)
             if ε_n<tol_ε
@@ -138,9 +142,19 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
             end
 
             dF_1!(J, model, x1,  φ)
-            # J = dF_1(model, x1, x0)
 
-            x1.data .-= J.data .\ r0.data
+            dx.data .= J.data .\ r0.data
+
+            for k=0:mbsteps
+                x2.data .= x1.data .- dx.data .* lam^k
+                F!(r0, model, x2,  φ)
+                ε_b = norm(r0)
+                if ε_b<ε_n
+                    break
+                end
+            end
+
+            x1.data .= x2.data
 
         end
 
@@ -172,7 +186,7 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
 
     end
 
-    # return (;solution=x0, message="No Convergence") # The only allocation when workspace is preallocated
+    return (;solution=x0, message="No Convergence") # The only allocation when workspace is preallocated
 
 end
 

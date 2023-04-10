@@ -3,28 +3,21 @@ using Plots
 
 import NoLib: transition, arbitrage, recalibrate, initial_guess, projection, equilibrium
 
-include("models/consumption_savings_ayiagari.jl")
+include("models/consumption_savings.jl")
 
 # check we can solve the model with default calibration
 
-@time sol_it = NoLib.time_iteration(model; verbose=false, improve=false);
+@time sol_iti = NoLib.time_iteration(model; verbose=true, improve=true, T=5);
 
-
-mem = NoLib.time_iteration_workspace(model)
-@time sol_iti = NoLib.time_iteration(model, mem; verbose=true, improve=false, T=10);
-@time sol_iti = NoLib.time_iteration(model, mem; verbose=true, improve=true, T=10);
-
-
-mem = NoLib.time_iteration_workspace(model, interp_mode=:cubic)
-@time sol_iti = NoLib.time_iteration(model, mem; verbose=true, improve=false, T=10);
-@time sol_iti = NoLib.time_iteration(model, mem; verbose=true, improve=true, T=10);
 
 mem = NoLib.time_iteration_workspace(model)
 @time sol = NoLib.time_iteration_4(model, mem; verbose=false, improve=false, T=15);
 @time sol_iti = NoLib.time_iteration_4(model, mem; verbose=true, improve=true);
 
 
-x0 = sol_it.solution
+sol = sol_4
+
+x0 = sol.solution
 μ0 = NoLib.ergodic_distribution(model, x0)
 
 
@@ -45,11 +38,12 @@ plot(pl1, pl2)
 
 y0 = model.calibration.y
 
-@time rr = NoLib.NoLib.ss_residual(model, y0; x0=x0, improve=false);
+@time NoLib.NoLib.ss_residual(model, y0; x0=x0);
 
-@time rrr = NoLib.NoLib.ss_residual(model, y0; x0=x0, diff=true, improve=true);
 
-@time ys = NoLib.find_equilibrium(model; x0=x0)
+@time NoLib.NoLib.ss_residual(model, y0; x0=x0, diff=true);
+
+@time ys = NoLib.find_equilibrium(model)
 
 
 

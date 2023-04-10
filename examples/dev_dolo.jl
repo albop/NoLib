@@ -176,8 +176,9 @@ dolomodel = Dolo.Model("examples/models/rbc_mc.yaml")
 
 
 
-@time sol_donolib_l = NoLib.time_iteration(domodel; improve=true, verbose=true, interp_mode=:linear);
-@time sol_nolib_l = NoLib.time_iteration(nolibmodel; improve=true, verbose=true, interp_mode=:linear);
+@time sol_dolo_i = Dolo.improved_time_iteration(dolomodel, verbose=false);
+@time sol_donolib_l = NoLib.time_iteration(domodel; improve=true, verbose=false, interp_mode=:linear);
+@time sol_nolib_l = NoLib.time_iteration(nolibmodel; improve=true, verbose=false, interp_mode=:linear);
 
 # @time sol_donolib_c = NoLib.time_iteration(domodel; improve=false, verbose=true, interp_mode=:cubic);
 # @time sol_nolib_c = NoLib.time_iteration(nolibmodel; improve=true, verbose=true, interp_mode=:cubic);

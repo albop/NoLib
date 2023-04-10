@@ -17,9 +17,9 @@ function ss_residual(model, y_::Union{SVector, SLArray}; diff=false, return_all=
     else
         sol = time_iteration(mod; verbose=true, improve=false, x0=x0)
     end
-    if !converged(sol)
-        return NaN
-    end
+    # if !converged(sol)
+    #     return NaN
+    # end
     
     x = sol.solution
 
@@ -88,6 +88,7 @@ function find_equilibrium(model; x0=nothing, y0=model.calibration.y, τ_ε=1e-8,
     for it=1:10
 
         res = ss_residual(model, y0; x0=x0, diff=true)
+        println(res)
         a, da = res
         ε = maximum(abs, a)
 

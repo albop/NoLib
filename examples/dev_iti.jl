@@ -1,16 +1,15 @@
 using NoLib
 
-include("models/rbc.jl")
+model = include("models/rbc.jl")
 
 @time mem = NoLib.time_iteration_workspace(model);
-@time begin NoLib.time_iteration(model, mem; verbose=false) end;
+@time begin NoLib.time_iteration(model, mem; verbose=false, T=50) end;
 
 @time mem = NoLib.time_iteration_workspace(model);
 @time begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:cubic) end;
 
 @time mem = NoLib.time_iteration_workspace(model);
-@time begin NoLib.time_iteration(model, mem; verbose=false, T=5) end
-@time begin NoLib.time_iteration(model, mem; verbose=true, improve=true) end
+@time NoLib.time_iteration(model, mem; verbose=true, improve=true) ;
 
 
 @time begin NoLib.time_iteration(model; verbose=true, improve=true) end
@@ -38,7 +37,6 @@ include("models/rbc.jl")
 
 @time mem = NoLib.time_iteration_workspace(model);
 @time sol = begin NoLib.time_iteration(model, mem; verbose=false, T=10, interp_mode=:cubic) end;
-@time begin NoLib.time_iteration(model, mem; verbose=false, improve=true, interp_mode=:cubic, T=10) end;
 
 
 @time mem = NoLib.time_iteration_workspace(model);
@@ -61,7 +59,8 @@ mem = NoLib.time_iteration_workspace(model, interp_mode=:linear);
 @time mem = NoLib.time_iteration_workspace(model, interp_mode=:cubic);
 @time sol = NoLib.time_iteration(model, mem);
     
-
+@time mem = NoLib.time_iteration_workspace(model, interp_mode=:cubic);
+@time sol = NoLib.time_iteration(model, mem; improve=true);
 
 @time mem = NoLib.time_iteration_workspace(model, interp_mode=:linear);
 @time sol = NoLib.time_iteration(model, mem);

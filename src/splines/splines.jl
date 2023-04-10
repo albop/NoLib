@@ -101,7 +101,8 @@ end
     function SplineInterpolator(ranges; values=nothing, k=3)
 
         n = [e[3] for e in ranges]
-        θ = zeros(eltype(values), (i+k-1 for i in n)...)
+        θ_ = zeros(eltype(values), (i+k-1 for i in n)...)
+        θ = MVector(θ_...) # TODO: check whether we always want that
         ci = SplineInterpolator{typeof(ranges), typeof(θ), k}(ranges, θ)
         if !isnothing(values)
             fit!(ci, values)

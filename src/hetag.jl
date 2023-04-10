@@ -293,14 +293,14 @@ cover(p, s::Tuple{IND, TT})  where IND where TT <: SVector{U,T} where U where T 
 # cover(p, s::Tuple{IND, TT})  where IND where TT where d = (s[1], (cover(p, s[2])))
 
 
-F(model, s, x::SVector, φ::GArray, p0, p1) =
+F(model, s, x::SVector, φ::DFun, p0, p1) =
     sum(
         w*arbitrage(model,cover(p0,s),x,cover(p1,S),φ(S)) 
          for (w,S) in τ(model, s, x, p0, p1)
     )
 
 
-function F(model, controls::GArray, φ::GArray, p0, p1; diff=false)
+function F(model, controls::GArray, φ::DFun, p0, p1; diff=false)
 
     r = GArray(
         model.grid,
@@ -345,7 +345,7 @@ function F(model, controls::GArray, φ::GArray, p0, p1; diff=false)
 
 end
 
-dF_1(model, controls::GArray, φ::GArray, p0, p1) =
+dF_1(model, controls::GArray, φ::DFun, p0, p1) =
     GArray(    # this shouldn't be needed
         model.grid,
         [
@@ -354,14 +354,14 @@ dF_1(model, controls::GArray, φ::GArray, p0, p1) =
         ]
     )
 
-dF_2(model, s, x::SVector, φ::GArray, dφ::GArray, p0, p1) = 
+dF_2(model, s, x::SVector, φ::DFun, dφ::DFun, p0, p1) = 
     sum(
             w*ForwardDiff.jacobian(u->arbitrage(model,cover(p0,s),x,S,u), φ(S))* dφ(S)
             for (w, S) in τ(model, s, x, p0, p1)
     )
 
 
-dF_2(model, controls::GArray, φ::GArray, dφ::GArray, p0, p1) =
+dF_2(model, controls::GArray, φ::DFun, dφ::DFun, p0, p1) =
     GArray(
         model.grid,
         [(dF_2(model,s,x,φ,dφ,p0,p1)) for (s,x) in zip(enum(model.grid), controls) ],
@@ -382,7 +382,7 @@ using LinearMaps
 #     )
 # end
 
-function dF_2(model, x::GArray, φ::GArray, p0, p1 )
+function dF_2(model, x::GArray, φ::DFun, p0, p1 )
     # TODO: one should preallocate here
     res = []
     for (s,x) in zip(enum(model.grid), x)
@@ -404,7 +404,7 @@ function dF_2(model, x::GArray, φ::GArray, p0, p1 )
             S_ij[n,j] = res[n][j][2]
         end
     end
-    return LF(model.grid, M_ij, S_ij)
+    return LF(model.grid, M_ij, S_ij, φ)
 end
 
 
