@@ -1,11 +1,15 @@
 using Test
-using CUDA
+# using CUDA
 using Adapt
-using CUDAKernels # Required to access CUDADevice
+# using CUDAKernels # Required to access CUDADevice
 using KernelAbstractions
 
 
 include("models/neoclassical.jl")
+
+
+
+
 
 Adapt.@adapt_structure NoLib.GArray
 

@@ -2,12 +2,89 @@ using NoLib
 
 model = include("models/rbc.jl")
 
-@time mem = NoLib.time_iteration_workspace(model);
-@time begin NoLib.time_iteration(model, mem; verbose=false, T=50) end;
 
 @time mem = NoLib.time_iteration_workspace(model);
 @time begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:cubic) end;
 
+@time mem = NoLib.time_iteration_workspace(model);
+@time begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:cubic) end;
+
+@time mem = NoLib.time_iteration_workspace(model);
+@time begin NoLib.time_iteration(model, mem; improve=true, verbose=false, interp_mode=:cubic) end;
+
+
+@time mem = NoLib.newton_workspace(model);
+@time NoLib.newton(model, mem; verbose=false, interp_mode=:cubic);
+
+x0 = mem.x0
+φ= mem.φ
+
+@code_warntype NoLib.dF_2!(Tp, model, x0, φ)
+
+
+@time NoLib.dF_2!(Tp, model, x0, φ)
+
+@time NoLib.dF_2(model, x0, φ)
+
+@code_warntype NoLib.dF_2!(Tp, model, mem.x0, mem.φ)
+
+
+J= NoLib.dF_1(model, x0, φ)
+T= NoLib.dF_2(model, x0, φ)
+
+
+function (f(T,J))
+    T.M_ij .= J.data .\ T.M_ij ;
+end
+@time T.M_ij .= J.data .\ T.M_ij ;
+@time f(T,J);
+
+
+
+function mult!(res, T,r)
+    NoLib.mul!(res,T,r)
+end
+
+@time mult!(out, Tp, r0);
+# out =  mult(Tp,r0);
+
+
+NoLib.neumann!(out, Tp, r0; K=1000)
+
+@time out = NoLib.neumann(Tp, r0; K=10000)
+
+NoLib.norm( out-Tp*out - r0 )
+
+mem = (;du=deepcopy(r0), dv=deepcopy(r0))
+
+using BenchmarkTools
+@benchmark NoLib.neumann!(out, Tp, r0, mem; K=1000)
+@benchmark NoLib.neumann(Tp, r0; K=1000)
+
+
+    
+@time mem = NoLib.time_iteration_workspace(model);
+@time begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:cubic, engine=:cpu) end;
+    
+
+    
+@time mem = NoLib.time_iteration_workspace(model);
+@time begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:linear) end;
+        
+@time mem = NoLib.time_iteration_workspace(model);
+@time begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:linear, engine=:cpu) end;
+
+
+@code_warntype NoLib.time_iteration(model, mem; verbose=false, interp_mode=:linear, engine=:cpu);
+
+        
+
+
+@time mem = NoLib.time_iteration_workspace(model);
+@profview begin NoLib.time_iteration(model, mem; verbose=false, interp_mode=:cubic, engine=:cpu) end;
+    
+    
+    
 @time mem = NoLib.time_iteration_workspace(model);
 @time NoLib.time_iteration(model, mem; verbose=true, improve=true) ;
 

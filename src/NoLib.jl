@@ -36,6 +36,9 @@ module NoLib
     include("simul.jl")
     include("time_iteration.jl")
 
+    include("time_iteration_accelerated.jl")
+
+
     # WIP heterogenous agents
     include("hetag.jl")
     include("hetag_ss.jl")

@@ -22,7 +22,7 @@ F(model, controls::GArray, φ::Union{GArray, DFun}) =
         ],
     )
 
-using LoopVectorization
+# using LoopVectorization
 function F!(out, model, controls::GArray, φ::Union{GArray, DFun})
     for n in 1:length(model.grid)
         i, j = NoLib.from_linear(model.grid, n)
@@ -33,6 +33,7 @@ function F!(out, model, controls::GArray, φ::Union{GArray, DFun})
         out[n] = F(model,s,x,φ)
     end
 end
+
 # function F!(out, model, controls::GArray, φ::GArray)
 #     @floop for (n, (s,x)) in enumerate(zip(enum(model.grid), controls))
 #         out[n] = F(model,s,x,φ)
@@ -102,9 +103,18 @@ function time_iteration_workspace(model; interp_mode=:linear)
     return (;x0, x1, x2, r0, dx, J, φ)
 end
 
+function newton_workspace(model; interp_mode=:linear)
+
+    
+    res = time_iteration_workspace(model; interp_mode=interp_mode)
+    T =  NoLib.dF_2(model, res.x0, res.φ)
+    res = merge(res, (;T=T,memn=(;du=deepcopy(res.x0), dv=deepcopy(res.x0))))
+    return res
+end
+
 
 function time_iteration(model, workspace=time_iteration_workspace(model);
-    T=500, K=10, tol_ε=1e-8, tol_η=1e-6, verbose=false, improve=false, interp_mode=:cubic
+    T=500, K=10, tol_ε=1e-8, tol_η=1e-6, verbose=false, improve=false, interp_mode=:cubic, engine=:none
     )
 
     # mem = typeof(workspace) <: Nothing ? time_iteration_workspace(model) : workspace
@@ -117,7 +127,11 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
         
         NoLib.fit!(φ, x0)
 
-        F!(r0, model, x0, φ)
+        if engine==:cpu
+            F!(r0, model, x0, φ, CPU())
+        else
+            F!(r0, model, x0, φ)
+        end
         # r0 = F(model, x0, φ)
 
         ε = norm(r0)
@@ -134,20 +148,32 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
 
         for k=1:10
 
-            F!(r0, model, x1,  φ)
+            if engine==:cpu
+                F!(r0, model, x1,  φ, CPU())
+            else
+                F!(r0, model, x1,  φ)
+            end
 
             ε_n = norm(r0)
             if ε_n<tol_ε
                 break
             end
 
-            dF_1!(J, model, x1,  φ)
+            if engine==:cpu
+                dF_1!(J, model, x1,  φ, CPU())
+            else
+                dF_1!(J, model, x1,  φ)
+            end
 
             dx.data .= J.data .\ r0.data
 
             for k=0:mbsteps
                 x2.data .= x1.data .- dx.data .* lam^k
-                F!(r0, model, x2,  φ)
+                if engine==:cpu
+                    F!(r0, model, x2,  φ, CPU())
+                else
+                    F!(r0, model, x2,  φ)
+                end
                 ε_b = norm(r0)
                 if ε_b<ε_n
                     break
@@ -182,6 +208,56 @@ function time_iteration(model, workspace=time_iteration_workspace(model);
             x1.data .= x0.data
 
         end
+
+
+    end
+
+    return (;solution=x0, message="No Convergence") # The only allocation when workspace is preallocated
+
+end
+
+
+function newton(model, workspace=newton_workspace(model);
+    K=10, tol_ε=1e-8, tol_η=1e-6, verbose=false, improve=false, interp_mode=:cubic
+    )
+
+    # mem = typeof(workspace) <: Nothing ? time_iteration_workspace(model) : workspace
+
+    (;x0, x1, x2, dx, r0, J, φ, T, memn) = workspace
+
+
+    for t=1:K
+        
+        NoLib.fit!(φ, x0)
+
+        F!(r0, model, x0, φ)
+
+        ε = norm(r0)
+        verbose ? println("$t: $ε") : nothing
+
+        if ε<tol_ε
+            return (;message="Solution found", solution=x0, n_iterations=t, dr=φ)
+        end
+
+        x1.data .= x0.data
+
+
+        dF_1!(J, model, x0, φ)
+        dF_2!(T, model, x0, φ)
+
+        
+        T.M_ij .*= -1.0
+        T.M_ij .= J.data .\ T.M_ij 
+        
+        r0.data .= J.data .\ r0.data
+        
+        neumann!(dx, T, r0, memn; K=1000)
+
+        x0.data .= x1.data .- dx.data
+        x1.data .= x0.data
+
+
+        # end
 
 
     end
