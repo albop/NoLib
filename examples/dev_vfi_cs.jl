@@ -1,9 +1,9 @@
 using NoLib
 
-include("models/neoclassical.jl")
+include("models/consumption_savings.jl")
 
 
-@time nx, nv = NoLib.vfi(model; improve=false, verbose=true)
+@time nx, nv = NoLib.vfi(model; improve=false, verbose=true, T=5000)
 
 @time nx, nv = NoLib.vfi(model; improve=true, verbose=true)
 
