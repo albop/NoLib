@@ -62,3 +62,27 @@ function arbitrage(model::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::
     r = p.β*(C/c)^(-p.γ)*(1-p.δ + p.α*exp(M.z)*S.k^(p.α-1)) - 1
     return SLVector( (;r) )
 end
+
+function reward(model::typeof(model), m::SLArray, s::SLArray, x::SLArray, p)
+    c = exp(m.z)*s.k^p.α - x.i
+    return c^(1-p.γ) / (1-p.γ)
+end
+
+function reward(model::typeof(model), m::SVector, s::SVector, x::SVector)
+    
+    p = model.calibration.p
+    
+    mm = NoLib.LVectorLike(model.calibration.m, m)
+    ss = NoLib.LVectorLike(model.calibration.s, s)
+    xx = NoLib.LVectorLike(model.calibration.x, x)
+
+    return reward(model, mm, ss, xx, p)
+
+end
+
+function reward(model::typeof(model),s, x::SVector)
+
+
+    return reward(model, SVector(s[2][1]), SVector(s[2][2]), x)
+
+end

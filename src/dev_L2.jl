@@ -50,7 +50,7 @@ end
 
 
 
-function mul!(dr, L2, x)
+function mul!(dr, L2::LF, x)
     (;M_ij, S_ij) = L2
     N,K = size(M_ij)
     dφ = L2.φ
