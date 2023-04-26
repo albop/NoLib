@@ -4,7 +4,7 @@ using NoLib
 using StaticArrays
 using LabelledArrays
 using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid, GridSpace, CartesianSpace
-import NoLib: transition, arbitrage
+import NoLib: transition, arbitrage, reward, X
 import NoLib: ×, DModel
 
 
@@ -61,4 +61,18 @@ function arbitrage(model::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::
     C = exp(M.z)*S.k^p.α - X.i
     r = p.β*(C/c)^(-p.γ)*(1-p.δ + p.α*exp(M.z)*S.k^(p.α-1)) - 1
     return SLVector( (;r) )
+end
+
+function X(model, s)
+
+    p = model.calibration.p
+
+    y = exp(s.z)*s.k^p.α 
+    ([0], [y*0.95])
+
+end
+
+function reward(model::typeof(model), s::SLArray, x::SLArray, p)
+    c = exp(s.z)*s.k^p.α - x.i
+    return c^(1-p.γ) / (1-p.γ)
 end

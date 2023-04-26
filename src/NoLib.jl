@@ -29,12 +29,26 @@ module NoLib
 
 
     
+    macro I(v)
+        :(($v).index)
+    end
+
+    macro V(v)
+        :(($v)[2])
+    end
+
+
+    
     include("grids.jl")
     include("garray.jl")
     include("model.jl")
-    include("simul.jl")
     include("funs.jl")
+    include("simul.jl")
     include("time_iteration.jl")
+
+    include("time_iteration_accelerated.jl")
+    include("vfi.jl")
+
 
     # WIP heterogenous agents
     include("hetag.jl")

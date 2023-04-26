@@ -2,7 +2,7 @@ using NoLib
 
 using StaticArrays
 using LabelledArrays
-using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid
+using NoLib: SGrid, CGrid, PGrid, GArray, GVector, enum, SSGrid, GridSpace, CartesianSpace
 import NoLib: transition, arbitrage
 import NoLib: ×, DModel
 
@@ -16,7 +16,7 @@ model = let
 	δ = 0.025
 	α = 0.33
 	ρ = 0.8
-	zbar = 0
+	zbar = 0.0
 	σ_z = 0.016
 	n = 0.33
 	z = zbar
@@ -36,16 +36,26 @@ model = let
 	
 	P = @SMatrix [0.4 0.6; 0.6 0.4]
 	Q = @SMatrix [-0.01; 0.01]
-	
-	exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
-    endo = CGrid( ((0.5*k, 1.5*k, 100),) )
+
+
+    domain = GridSpace(
+        [Q[i,:] for i=1:size(Q,1)] 
+    ) × CartesianSpace(
+        k=[k*0.5, k*1.5]
+    )
+
+	N = 200
+    exo = SSGrid( [Q[i,:] for i=1:size(Q,1)] )
+    endo = CGrid( ((k*0.5, k*1.5, N),) )
     grid = exo × endo
-	
-	DModel(
-		(;m, s, x, p,),
-		grid,
-		P
-	)
+
+    DModel(
+        (;m, s, x, p,),
+        domain,
+        grid,
+        P
+    )
+
 	
 end
 
@@ -69,3 +79,5 @@ function arbitrage(model::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::
 	res_2 = (p.β*(y.c/Y.c)^p.σ)*(1 - p.δ + Y.rk) - 1
     return SLVector( (;res_1, res_2) )
 end
+
+model

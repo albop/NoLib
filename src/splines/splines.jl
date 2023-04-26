@@ -65,7 +65,7 @@ end
 
 
     function prefilter!(θ::AbstractArray{T, d}, grid::NTuple{d,Tuple{Float64,Float64,i}}, V::AbstractArray{T, d}, ::Val{1}) where d where i<:Int where T
-        θ[:] = V
+        θ .= V
     end
 
     function CubicInterpolator(grid; values=nothing)
@@ -82,20 +82,31 @@ end
     
     end
 
+
+    function fit!(spl::SplineInterpolator{G,C,k}, values) where G where C where k
+
+        # grid = spl.grid
+        # n = [e[3] for e in spl.grid]
+        if k==3
+            fill!(spl.θ, zero(eltype(spl.θ)))
+            ind = tuple( (2:(e[3]+1) for e in spl.grid )...)
+            spl.θ[ind...] .= values
+            splines.prefilter!(spl.θ)
+        elseif k==1
+            spl.θ .= values
+        end
+    
+    end
+
     function SplineInterpolator(ranges; values=nothing, k=3)
 
-        # TODO: logic here is ridiculous
-        @assert !isnothing(values)
         n = [e[3] for e in ranges]
-        if k==3
-            θ = zeros(eltype(values), (i+2 for i in n)...)
-            ind = tuple( (2:(e[3]+1) for e in ranges )...)
-            θ[ind...] .= values
-            splines.prefilter!(θ)
-        elseif k==1
-            θ = copy(values)
-        end
+        θ_ = zeros(eltype(values), (i+k-1 for i in n)...)
+        θ = MVector(θ_...) # TODO: check whether we always want that
         ci = SplineInterpolator{typeof(ranges), typeof(θ), k}(ranges, θ)
+        if !isnothing(values)
+            fit!(ci, values)
+        end
         return ci
     
     end

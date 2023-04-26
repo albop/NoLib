@@ -7,7 +7,8 @@ using LabelledArrays
 using NoLib: SSGrid, CGrid, PGrid, GArray, DModel
 import NoLib: ×, ⟂
 import NoLib: transition, arbitrage, recalibrate, initial_guess, projection, equilibrium
-
+import NoLib: X, reward
+import NoLib: GridSpace, CartesianSpace
 
 using QuantEcon: rouwenhorst
 
@@ -42,7 +43,8 @@ model = let
 
     m = SLVector(;w,r,e)
     s = SLVector(;y)
-    x = SLVector(;c, λ)
+    # x = SLVector(;c, λ)
+    x = SLVector(;c)
     y = SLVector(;K)
     z = SLVector(;z=0.0)
 
@@ -55,6 +57,11 @@ model = let
     ## decide whether this should be matrix or smatrix
     Q = SVector( (SVector(w,r,e) for e in mc.state_values)... )
 
+    domain = GridSpace(
+        [Q[i] for i=1:size(Q,1)] 
+    )×CartesianSpace(;
+        k=[0.01, 100]
+    )
 
     grid = SSGrid(Q) × CGrid(((0.01,80.0,N),))
     
@@ -62,6 +69,7 @@ model = let
 
     DModel(
         (;m, s, x, y, z, p),
+        domain,
         grid,
         P
     )
@@ -130,8 +138,29 @@ function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SL
     return SLVector( (;eq, eq2) )
 end
 
+# function initial_guess(model, m::SLArray, s::SLArray, p)
+#     # c = min( 1.0 + 0.01*(s.y - 1.0), s.y)
+#     c = 0.8*s.y
+#     λ = 0.01 # max( 1.0 + 0.01*(s.y - 1.0), 0.01*(s.y-1))
+#     return SLVector(;c, λ)
+# end
+
 function initial_guess(model, m::SLArray, s::SLArray, p)
-    c = s.y*0.8
-    λ = 0.001
-    return SLVector(;c, λ)
+    # c = min( 1.0 + 0.01*(s.y - 1.0), s.y)
+    # c = exp(m.e)*m.w *0.8
+    c = s.y*0.9
+    return SLVector(;c)
+end
+
+function reward(model::typeof(model), s::SLArray, x::SLArray, p)
+    c = x.c
+    return c^(1-p.γ) / (1-p.γ)
+end
+
+function X(model, s::SLArray)
+
+    p = model.calibration.p
+    y = s.y
+    ([0.0001], [y])
+
 end

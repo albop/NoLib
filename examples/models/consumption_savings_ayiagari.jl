@@ -9,7 +9,7 @@ import NoLib: ×, ⟂
 using NoLib: DModel
 import NoLib: transition, arbitrage, recalibrate, initial_guess, projection, equilibrium
 
-
+using NoLib: GridSpace, CartesianSpace
 using QuantEcon: rouwenhorst
 
 model = let 
@@ -172,6 +172,6 @@ end
 
 function initial_guess(model, m::SLArray, s::SLArray, p)
     c = s.y*0.8
-    λ = 0.001
+    λ = 0.01
     return SLVector(;c, λ)
 end

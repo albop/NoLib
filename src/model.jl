@@ -1,12 +1,16 @@
 # functions to help with model definition
 
-struct Model{A,B,C,N}
+abstract type AModel{A,B,C,N} end
+
+struct Model{A,B,C,N} <: AModel{A,B,C,N}
     calibration::A
     domain::B
     transition::C
 end
 
-struct DModel{A,B,C,D,N}
+abstract type ADModel{A,B,C,D,N} end
+
+struct DModel{A,B,C,D,N} <: ADModel{A,B,C,D,N}
     calibration::A
     domain::B
     grid::C
@@ -17,7 +21,7 @@ Model(calibration::A, domain::B, transition::C; name::Symbol=:anonymous) where A
 DModel(calibration::A, domain::B, grid::C, transition::D; name::Symbol=:anonymous) where A where B where C where D = DModel{A,B,C,D,name}(calibration, domain, grid, transition)
 
 name(::Model{A,B,C,N}) where A where B where  C where N = N
-name(::DModel{A,B,C,D,N}) where A where B where  C where D where N = N
+name(::ADModel{A,B,C,D,N}) where A where B where  C where D where N = N
 
 
 
@@ -26,10 +30,10 @@ end
 
 # TODO
 import Base.show
-Base.show(io::IO, dmodel::DModel) = print(io, "DModel(#$(hash(typeof(dmodel))))")
+Base.show(io::IO, dmodel::ADModel) = print(io, "DModel(#$(hash(typeof(dmodel))))")
 
 
-exo_transition(model::DModel) = model.transition
+exo_transition(model::ADModel) = model.transition
 
 import Base: merge
 function merge(a::SLArray, b::SLArray)
@@ -46,18 +50,19 @@ end
 
 label_GArray(m, g::GArray) = GArray(g.grid, [LVectorLike(m, e) for e in g.data])
 
-function transition(model, m, s, x, M, p)
+function transition(model::ADModel, m, s, x, M, p)
     m = LVectorLike(model.calibration.m,m)
     s = LVectorLike(model.calibration.s,s)
     x = LVectorLike(model.calibration.x,x)
     M = LVectorLike(model.calibration.m,M)
+    # p = LVectorLike(model.calibration.p,p)
     S = transition(model,m,s,x,M,p)
     return SVector(S...)
 end
 
 
 
-function arbitrage(model, m, s, x, M, S, X, p)
+function arbitrage(model::ADModel, m, s, x, M, S, X, p)
     m = LVectorLike(model.calibration.m, m)  # this does not keep the original type
     s = LVectorLike(model.calibration.s, s)
     x = LVectorLike(model.calibration.x, x)
@@ -68,7 +73,7 @@ function arbitrage(model, m, s, x, M, S, X, p)
     return SVector(r...)
 end
 
-function arbitrage(model, s, x, S, X)
+function arbitrage(model::ADModel, s, x, S, X)
     p = model.calibration.p
     
     arbitrage(model, 
@@ -81,11 +86,11 @@ function arbitrage(model, s, x, S, X)
 end
 
 
-function split_states(model, S::Tuple{ind, v}) where ind where v<:SVector
+function split_states(model::ADModel, S::Tuple{ind, v}) where ind where v<:SVector
     split_states(model, S[2])
 end
 
-function split_states(model, s_)
+function split_states(model::ADModel, s_)
 
     n_m = length(model.calibration.m)  # this does not keep the original type
     n_s = length(model.calibration.s)
@@ -102,7 +107,7 @@ function initial_guess(model, m::SLArray, s::SLArray, p)
     model.calibration.x
 end
 
-function initial_guess(model, m::SVector, s::SVector, p)
+function initial_guess(model::ADModel, m::SVector, s::SVector, p)
 
     m = LVectorLike(model.calibration.m, m)  # this does not keep the original type
     s = LVectorLike(model.calibration.s, s)
@@ -113,7 +118,7 @@ function initial_guess(model, m::SVector, s::SVector, p)
     
 end
 
-function initial_guess(model, s::SVector)
+function initial_guess(model::ADModel, s::SVector)
     
     p = model.calibration.p
 
