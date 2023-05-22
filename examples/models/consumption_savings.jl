@@ -7,6 +7,7 @@ using LabelledArrays
 using NoLib: SSGrid, CGrid, PGrid, GArray, DModel
 import NoLib: ×, ⟂
 import NoLib: transition, arbitrage, recalibrate, initial_guess, projection, equilibrium
+import NoLib: has_complementarities, complementarities
 import NoLib: X, reward
 import NoLib: GridSpace, CartesianSpace
 
@@ -130,26 +131,22 @@ function transition(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::S
     return SLVector( (;y) )
 end
 
-
 function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SLArray, S::SLArray, X::SLArray, p)
-    eq = 1 - p.β*( X.c/x.c )^(-p.γ)*(1+M.r) - x.λ
+    eq = 1 - p.β*( X.c/x.c )^(-p.γ)*(1+M.r)
     # @warn "The euler equation is satisfied only if c<w. If c=w, it can be strictly positive."
-    eq2 = x.λ ⟂ s.y-x.c
-    return SLVector( (;eq, eq2) )
+    return SLVector( (;eq) )
 end
 
-# function initial_guess(model, m::SLArray, s::SLArray, p)
-#     # c = min( 1.0 + 0.01*(s.y - 1.0), s.y)
-#     c = 0.8*s.y
-#     λ = 0.01 # max( 1.0 + 0.01*(s.y - 1.0), 0.01*(s.y-1))
-#     return SLVector(;c, λ)
-# end
+has_complementarities(model::typeof(model)) = true
+
+complementarities(model::typeof(model), s::SLArray, x::SLArray) = s.y-x.c
+
 
 function initial_guess(model, m::SLArray, s::SLArray, p)
-    # c = min( 1.0 + 0.01*(s.y - 1.0), s.y)
+    c = min( 1.0 + 0.01*(s.y - 1.0), s.y)
     # c = exp(m.e)*m.w *0.8
-    c = s.y*0.9
-    return SLVector(;c)
+    # c = s.y*1.0
+    return SLVector(;c)    
 end
 
 function reward(model::typeof(model), s::SLArray, x::SLArray, p)
@@ -161,6 +158,8 @@ function X(model, s::SLArray)
 
     p = model.calibration.p
     y = s.y
-    ([0.0001], [y])
+    lb = SLVector(k=0.0001)
+    ub = SLVector(k=y)
+    lb, ub
 
 end

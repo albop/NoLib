@@ -62,6 +62,11 @@ function vfi(model; verbose=true, improve=true, T=1000)
     nx = initial_guess(model)
     nv = GArray(model.grid, [1.0 for i=1:length(model.grid)])
 
+    
+    for n=1:500
+        nv = Bellman_eval(model, nx, nv)
+    end
+    
     for k=1:T
 
         nx1,nv = Bellman_update(model, nx, nv)

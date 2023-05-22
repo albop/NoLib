@@ -10,7 +10,12 @@ module NoLib
     include("splines/splines.jl")
     using .splines: interp
     
-    ⟂(a,b) = min(a,b)
+    # use broadcast properly
+    ⟂(a::Number,b::Number) = min(a,b)
+    ⟂(a::AbstractArray,b::Number) = min.(a,b)
+    ⟂(a::AbstractArray,b::AbstractArray) = min.(a,b)
+    ⟂(a::Number,b::AbstractArray) = min.(a,b)
+
     # ⟂ᶠ(a,b)
 
     import Base: getindex
