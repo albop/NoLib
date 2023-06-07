@@ -65,6 +65,7 @@ model = let
     e = 0.0
     port_costs = 0.012706305587823754
     c  = y - G - I - port_costs - ω * Bh
+    n  = 1.0
     b  = Bh
     a  = total_wealth - b  
 
@@ -82,10 +83,10 @@ model = let
     ### Variables
     m = SLVector(;w,rb,ra,e) # Prices
     s = SLVector(;y)  # States
-    x = SLVector(;c,a,b,λ,μa,μb,port_costs)  # Controls
+    x = SLVector(;c,n,a,b,λ,μa,μb,port_costs)  # Controls
     y = SLVector(;Bh,Bg,G,K,total_wealth)  # Exogenous
     z = SLVector(;z=0)
-    p = SLVector(;β,γ,ν,θ,ρE,σE,χ0,χ1,χ2,a_min,b_min)
+    p = SLVector(;β,γ,ν,θ,ρE,σE,χ0,χ1,χ2,a_min,b_min)  #### TO DO!!
 
     ### Grids
     e_grid = rouwenhorst(nE,ρE,σE)
@@ -128,10 +129,11 @@ end
 
 function arbitrage(mod::typeof(model), m::SLArray, s::SLArray, x::SLArray, M::SLArray, S::SLArray, X::SLArray, p)
     eq  = 1 - p.β*( ((X.c^(-p.γ))*(1+M.rb)) / ((x.c^(-p.γ)) - x.μb) )
-    eq2 = 1 - p.β*( ((X.c^(-p.γ))*(1+M.ra-Psi2(m,s,x,M,S,X,p)))/((x.c^(-p.γ))*(1.0+Psi1(m,s,x,M,S,X,p))+x.μa) )
-    eq3 = x.μb ⟂ x.b-p.b_min
-    eq4 = x.μa ⟂ x.a-p.a_min
-    return SLVector( (;eq, eq2, eq3, eq4) )
+    eq2 = - p.θ * (x.n^p.ν) + (x.c^(-p.γ)) * (1.0-p.τ) * m.w * m.e
+    eq3 = 1 - p.β*( ((X.c^(-p.γ))*(1+M.ra-Psi2(m,s,x,M,S,X,p)))/((x.c^(-p.γ))*(1.0+Psi1(m,s,x,M,S,X,p))+x.μa) )
+    eq4 = x.μb ⟂ x.b-p.b_min
+    eq5 = x.μa ⟂ x.a-p.a_min
+    return SLVector( (;eq, eq2, eq3, eq4, eq5) )
 end
 
 # @time sol_iti = NoLib.time_iteration(model; verbose=true, improve=true, T=5);
