@@ -52,8 +52,10 @@ cover(m,v::SVector{d,T}) where d where T = SVector{d,T}(
 )
 
 PGrid(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{typeof(g1), CGrid{d2}, d1+d2}(g1, g2)
-
 cross(g1::SGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid(g1,g2)
+
+# another way to define multi-dimension cartesian grids
+PGrid(g1::CGrid{d1}, g2::CGrid{d2}) where d1 where d2 = PGrid{typeof(g1), CGrid{d2}, d1+d2}(g1, g2)
 
 import Base: getindex
 
@@ -132,6 +134,22 @@ getindex(s::CGrid{1}, i::Int) = let
     SVector(a + (i-1)/(n-1) * (b-a))
 end
 
+getindex(s::CGrid{2}, n::Int) = let
+    pg = PGrid(CGrid((s.ranges[1])), CGrid((s.ranges[2])))
+    (i,j) = from_linear(pg, n)
+    a_1 = s.ranges[1][1]
+    b_1 = s.ranges[1][2]
+    n_1 = length(s)
+    a_2 = s.ranges[2][1]
+    b_2 = s.ranges[2][2]
+    n_2 = length(s)
+    SVector(
+        a_1 + (i-1)/(n_1-1) * (b_1-a_1),
+        a_2 + (j-1)/(n_2-1) * (b_2-a_2)
+    )
+end
+
+
 length(s::CGrid{1}) = s.ranges[1][3]
 iterate(s::CGrid{1}) = (SVector(s.ranges[1][1]), 1)
 iterate(s::CGrid{1}, state) = state<length(s) ? let
@@ -143,20 +161,20 @@ end : nothing
 
 
 
-function Base.iterate(g::CGrid{d}) where d
+function Base.iterate(g::CGrid{2})
     x = g.ranges[1][1]
     y = g.ranges[2][1]
-    return (SVector{d, Float64}(x,y),(y,1,1))
+    return (SVector{2, Float64}(x,y),(y,1,1))
 end
 
-function Base.iterate(g::CGrid{d},state) where d
+function Base.iterate(g::CGrid{2},state)
     y,i,j=state
     if i<g.ranges[1][3]
         i += 1
         a = g.ranges[1][1]
         b = g.ranges[1][2]
         x = a + (b-a)*(i-1)/(g.ranges[1][3]-1)
-        return (SVector{d,Float64}(x, y), (y,i,j))
+        return (SVector{2,Float64}(x, y), (y,i,j))
     else
         if j==g.ranges[2][3]
             return nothing
@@ -169,12 +187,43 @@ function Base.iterate(g::CGrid{d},state) where d
             a = g.ranges[2][1]
             b = g.ranges[2][2]
             y = a + (b-a)*(j-1)/(g.ranges[2][3]-1)
-            return (SVector{d,Float64}(x, y), (y,i,j))
+            return (SVector{2,Float64}(x, y), (y,i,j))
         end
     end
 end
 
 
+# a bit slower
+# function Base.iterate(g::CGrid{2})
+#     g1 = CGrid((g.ranges[1],))
+#     g2 = CGrid((g.ranges[2],))
+#     p = PGrid(g1, g2)
+#     return Base.iterate(p)
+# end
+
+# function Base.iterate(g::CGrid{2},state)
+#     g1 = CGrid((g.ranges[1],))
+#     g2 = CGrid((g.ranges[2],))
+#     p = PGrid(g1, g2)
+#     return Base.iterate(p, state)
+# end
+
+
+
+
+# function Base.iterate(g::CGrid{2})
+#     g1 = CGrid((g.ranges[1], g.ranges[2]))
+#     g2 = CGrid((g.ranges[3],))
+#     p = PGrid(g1, g2)
+#     return Base.iterate(p)
+# end
+
+# function Base.iterate(g::CGrid{3},state)
+#     g1 = CGrid((g.ranges[1], g.ranges[2]))
+#     g2 = CGrid((g.ranges[3],))
+#     p = PGrid(g1, g2)
+#     return Base.iterate(p, state)
+# end
 
 
 function Base.iterate(g::PGrid{G1, G2, d}) where G1 where G2 where d
