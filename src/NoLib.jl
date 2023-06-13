@@ -38,7 +38,8 @@ module NoLib
     end
 
 
-    
+    include("space.jl")
+
     include("grids.jl")
     include("garray.jl")
     include("model.jl")
@@ -51,11 +52,10 @@ module NoLib
 
 
     # WIP heterogenous agents
-    include("hetag.jl")
-    include("hetag_ss.jl")
-    include("jac.jl")
-    include("gauss_elim.jl")
-    include("space.jl")
+    # include("hetag.jl")
+    # include("hetag_ss.jl")
+    # include("jac.jl")
+    # include("gauss_elim.jl")
 
 end # module
 

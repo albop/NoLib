@@ -1,6 +1,16 @@
-# functions to help with model definition
+# abstract model
 
 abstract type AModel{A,B,C,N} end
+
+abstract type ADModel{A,B,C,D,N} end
+
+
+struct Model{A,B,C,N} <: AModel{A,B,C,N}
+    calibration::A
+    endo_domain::B
+    exogenous::C
+end
+
 
 struct Model{A,B,C,N} <: AModel{A,B,C,N}
     calibration::A
@@ -8,7 +18,26 @@ struct Model{A,B,C,N} <: AModel{A,B,C,N}
     transition::C
 end
 
-abstract type ADModel{A,B,C,D,N} end
+
+
+struct Model{A,B,C,N} <: AModel{A,B,C,N}
+    calibration::A
+    domain::B
+end
+
+exo_transition(model, ... )
+endo_transition(model, ...)
+
+
+struct Model{A,B,C,N} <: AModel{A,B,C,N}
+    calibration::A
+    domain::B
+    transition::C
+end
+
+
+Model(calibration::A, domain::B, exogenous::C; name::Symbol=:anonymous) where A where B where C = Model{A,B,C,name}(calibration, domain, transition)
+name(::Model{A,B,C,N}) where A where B where  C where N = N
 
 struct DModel{A,B,C,D,N} <: ADModel{A,B,C,D,N}
     calibration::A
@@ -17,13 +46,19 @@ struct DModel{A,B,C,D,N} <: ADModel{A,B,C,D,N}
     transition::D
 end
 
-Model(calibration::A, domain::B, transition::C; name::Symbol=:anonymous) where A where B where C = Model{A,B,C,name}(calibration, domain, transition)
 DModel(calibration::A, domain::B, grid::C, transition::D; name::Symbol=:anonymous) where A where B where C where D = DModel{A,B,C,D,name}(calibration, domain, grid, transition)
 
-name(::Model{A,B,C,N}) where A where B where  C where N = N
 name(::ADModel{A,B,C,D,N}) where A where B where  C where D where N = N
 
+function Base.show(io::IO, m::AModel) 
+    println("Model")
+    println("* name = ", name(m))
+end
 
+function Base.show(io::IO, m::ADModel) 
+    println("Discretized Model")
+    println("* name = ", name(m))
+end
 
 function recalibrate()
 end
