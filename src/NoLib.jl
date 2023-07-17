@@ -80,23 +80,20 @@ module NoLib
     include("algos/vfi.jl")
     include("utils.jl")
 
+    # function yaml_import(filename)
+    #     DoModel.DoloModel(filename)
+    # end
 
-    include("../DoModel/src/DoModel.jl")
-
-
-    function yaml_import(filename)
-        DoModel.DoloModel(filename)
-    end
-
-    export yaml_import, time_iteration, tabulate, discount_factor
+    export time_iteration, tabulate, discount_factor
 
     module Build
         using NoLib: transition, arbitrage, bounds, reward
         using NoLib: GSpace, CSpace
+        using NoLib: SGrid, CGrid
         using NoLib: CartesianSpace, GridSpace
         using NoLib: MvNormal, MarkovChain
         using NoLib: YModel
-        export CSpace, GSpace, CartesianSpace, GridSpace, transition, arbitrage, MvNormal, MarkovChain
+        export SGrid, CGrid, CSpace, GSpace, CartesianSpace, GridSpace, transition, arbitrage, MvNormal, MarkovChain
         export YModel, bounds, reward
     end
 
